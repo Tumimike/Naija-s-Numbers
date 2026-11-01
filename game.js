@@ -7,17 +7,15 @@ const ROUNDS = 5;
 const LAUNCH_DATE = Date.UTC(2026, 10, 1); // 1 Nov 2026 = puzzle #1 (months start at 0)
 const LAGOS_OFFSET_MS = 60 * 60 * 1000;    // Lagos is UTC+1 all year
 
-// Timer: one shared clock for the whole game. Each new question adds
-// SECONDS_PER_QUESTION to it, and unused time carries over to the next.
-// The clock is paused while the answer is being shown.
+// Timer: each question gets its own fresh clock. Nothing carries over.
 const SECONDS_PER_QUESTION = 18;
 
-// Time bonus, scored once at the end from the seconds left on the clock.
-// Checked from the top down; first match wins.
+// Time bonus per round, from the seconds left when the guess is locked in.
+// Only counts on rounds that scored points. Checked top down; first match wins.
 const TIME_BONUS_TIERS = [
-  { secondsLeft: 60, points: 50 },
-  { secondsLeft: 45, points: 35 },
-  { secondsLeft: 30, points: 20 },
+  { secondsLeft: 10, points: 30 },
+  { secondsLeft: 8,  points: 25 },
+  { secondsLeft: 5,  points: 20 },
 ];
 
 // Points bands. "within" is how far off the guess is, as a fraction of the
@@ -35,7 +33,7 @@ const WITHIN_DOUBLE = { points: 20, emoji: "🟥" };
 const MISS = { points: 0, emoji: "⬛" };
 
 const MAX_ROUND_POINTS = BANDS[0].points;
-const MAX_TIME_BONUS = TIME_BONUS_TIERS[0].points;
+const MAX_TIME_BONUS = ROUNDS * TIME_BONUS_TIERS[0].points;
 const MAX_TOTAL = ROUNDS * MAX_ROUND_POINTS + MAX_TIME_BONUS;
 
 const UNIT_SIZE = {
@@ -80,13 +78,13 @@ function save(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage blocked — game still works */ }
 }
 
-// today.bank       – seconds left on the shared clock between questions
+// today.timeBonus  – time bonus earned on each round
 // today.roundClock – seconds on the clock when the current question appeared
 // today.startedAt  – when the current question appeared, so refreshing
 //                    the page doesn't reset the clock
 let today = load("nn_today", null);
-if (!today || today.day !== TODAY || typeof today.bank !== "number") {
-  today = { day: TODAY, guesses: [], scores: [], bank: 0, roundClock: null, startedAt: null };
+if (!today || today.day !== TODAY || !Array.isArray(today.timeBonus)) {
+  today = { day: TODAY, guesses: [], scores: [], timeBonus: [], roundClock: null, startedAt: null };
 }
 let stats = load("nn_stats", { played: 0, streak: 0, maxStreak: 0, best: 0, total: 0, lastDay: null });
 
@@ -146,11 +144,8 @@ function timeBonus(secondsLeft) {
   const tier = TIME_BONUS_TIERS.find(t => secondsLeft >= t.secondsLeft);
   return tier ? tier.points : 0;
 }
-function finished() {
-  return today.guesses.length >= ROUNDS;
-}
 function totalScore() {
-  return sum(today.scores) + (finished() ? timeBonus(today.bank) : 0);
+  return sum(today.scores) + sum(today.timeBonus);
 }
 function formatClock(s) {
   const whole = Math.ceil(s);
@@ -234,12 +229,11 @@ function showQuestion() {
   // Only start the clock if it isn't already running for this round
   // (e.g. after a page refresh, the old start time is kept).
   if (!today.startedAt) {
-    today.roundClock = today.bank + SECONDS_PER_QUESTION;
+    today.roundClock = SECONDS_PER_QUESTION;
     today.startedAt = Date.now();
     save("nn_today", today);
   }
-  $("bankLabel").textContent =
-    `+${SECONDS_PER_QUESTION}s added · ${formatClock(today.bank)} carried over`;
+  $("bankLabel").textContent = "Answer with 5+ seconds left for a time bonus";
   show("round");
   $("guessInput").focus();
   startTimer();
@@ -261,7 +255,7 @@ function submitGuess(timedOut) {
 
   today.guesses.push(guess && guess > 0 ? guess : null);
   today.scores.push(points);
-  today.bank = timedOut ? 0 : Math.round(secondsLeft() * 10) / 10;
+  today.timeBonus.push(!timedOut && points > 0 ? timeBonus(secondsLeft()) : 0);
   today.roundClock = null;
   today.startedAt = null;
   save("nn_today", today);
@@ -290,8 +284,10 @@ function showReveal(index, timedOut) {
   }
 
   $("revealBonus").textContent = timedOut
-    ? "⏱ Clock ran out — nothing carried over"
-    : `⏱ ${formatClock(today.bank)} left on the clock`;
+    ? "⏱ Time ran out — no time bonus"
+    : today.timeBonus[index] > 0
+      ? `⏱ +${today.timeBonus[index]} time bonus`
+      : "No time bonus this round";
 
   $("revealSource").textContent = q.source ? `Source: ${q.source}` : "";
   $("nextBtn").textContent = index === ROUNDS - 1 ? "See my score" : "Next question";
@@ -302,12 +298,11 @@ function showDone() {
   stopTimer();
   $("totalScore").innerHTML = `${totalScore()}<small>/${MAX_TOTAL}</small>`;
   $("scoreBreakdown").textContent =
-    `${sum(today.scores)} from guesses + ${timeBonus(today.bank)} time bonus ` +
-    `(${formatClock(today.bank)} left)`;
+    `${sum(today.scores)} from guesses + ${sum(today.timeBonus)} time bonus`;
   $("squares").textContent = today.scores.map(emojiFor).join("");
   $("summary").innerHTML = TODAY_QS.map((q, i) =>
     `<li>${q.q}<br><strong>${short(q.answer)}</strong> — you said ${short(today.guesses[i])} ` +
-    `(${today.scores[i]} pts)</li>`
+    `(${today.scores[i]} pts + ${today.timeBonus[i]} time)</li>`
   ).join("");
   show("done");
   startCountdown();
@@ -358,7 +353,7 @@ function recordFinish() {
 $("shareBtn").addEventListener("click", async () => {
   const text =
     `Naija's Numbers #${PUZZLE_NO} — ${totalScore()}/${MAX_TOTAL}\n` +
-    today.scores.map(emojiFor).join("") + ` ⏱${formatClock(today.bank)}\n` +
+    today.scores.map(emojiFor).join("") + ` ⏱+${sum(today.timeBonus)}\n` +
     location.href.split("?")[0];
   try {
     if (navigator.share) {
