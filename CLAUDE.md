@@ -17,5 +17,7 @@ Daily Lagos number-guessing game (inspired by Wordle / Krillion). Plain HTML/CSS
 - Progress and stats (played, streak, best streak, best score, average) are saved in `localStorage` (`nn_today`, `nn_stats`).
 
 ## Owner's instructions
-- Focus on core mechanics; don't change the page design unless asked.
-- Hosting not set up yet.
+- Core mechanics are done and tested. Don't change scoring or timer rules unless asked.
+- Current phase: visual design. The existing look (danfo yellow, black, green) is a placeholder and can be replaced.
+- Keep element IDs in `index.html` that `game.js` relies on, or update `game.js` to match.
+- Hosting: GitHub Pages from `main` (https://tumimike.github.io/naija-s-numbers/) once the owner turns it on.
