@@ -7,17 +7,28 @@ const ROUNDS = 5;
 const LAUNCH_DATE = Date.UTC(2026, 10, 1); // 1 Nov 2026 = puzzle #1 (months start at 0)
 const LAGOS_OFFSET_MS = 60 * 60 * 1000;    // Lagos is UTC+1 all year
 
-// Points bands. "within" is how many times bigger/smaller the guess can be.
-// 1.05 = within 5%, 2 = anywhere from half to double. Being too high and
-// too low by the same factor scores the same.
+// Timer: seconds per question, and bonus points per banked second.
+// Banked time only counts on rounds that scored points.
+const SECONDS_PER_QUESTION = 5;
+const POINTS_PER_BANKED_SECOND = 10;
+
+// Points bands. "within" is how far off the guess is, as a fraction of the
+// answer (0.05 = within 5%). Checked from the top down; first match wins.
 const BANDS = [
-  { within: 1.05, points: 100, emoji: "🎯" },
-  { within: 1.10, points: 80,  emoji: "🟩" },
-  { within: 1.25, points: 60,  emoji: "🟨" },
-  { within: 1.50, points: 40,  emoji: "🟧" },
-  { within: 2.00, points: 20,  emoji: "🟥" },
+  { within: 0.01,  points: 350, emoji: "💎" }, // 250 + 100 bonus
+  { within: 0.025, points: 250, emoji: "🎯" },
+  { within: 0.05,  points: 150, emoji: "🟩" },
+  { within: 0.10,  points: 100, emoji: "🟨" },
+  { within: 0.25,  points: 75,  emoji: "🟧" },
+  { within: 0.40,  points: 50,  emoji: "🟫" },
 ];
+// Last chance: anywhere from half to double the answer
+const WITHIN_DOUBLE = { points: 20, emoji: "🟥" };
 const MISS = { points: 0, emoji: "⬛" };
+
+const MAX_ROUND_POINTS = BANDS[0].points;
+const MAX_TIME_BONUS = ROUNDS * SECONDS_PER_QUESTION * POINTS_PER_BANKED_SECOND;
+const MAX_TOTAL = ROUNDS * MAX_ROUND_POINTS + MAX_TIME_BONUS;
 
 const UNIT_SIZE = {
   hundreds: 100,
@@ -61,9 +72,11 @@ function save(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage blocked — game still works */ }
 }
 
+// today.startedAt remembers when the current question appeared, so
+// refreshing the page doesn't reset the clock.
 let today = load("nn_today", null);
-if (!today || today.day !== TODAY) {
-  today = { day: TODAY, guesses: [], scores: [] };
+if (!today || today.day !== TODAY || !Array.isArray(today.timeBonus)) {
+  today = { day: TODAY, guesses: [], scores: [], timeBonus: [], startedAt: null };
 }
 let stats = load("nn_stats", { played: 0, streak: 0, maxStreak: 0, best: 0, total: 0, lastDay: null });
 
@@ -100,26 +113,37 @@ function parseGuess(raw, unit) {
 //  Scoring
 // ============================================================
 function scoreGuess(guess, answer) {
+  if (!guess || guess <= 0) return { ...MISS, off: null };
   const off = Math.abs(guess - answer) / answer;
-  const ratio = Math.max(guess, answer) / Math.min(guess, answer);
   for (const band of BANDS) {
-    if (ratio <= band.within) return { ...band, off };
+    if (off <= band.within) return { ...band, off };
   }
+  const ratio = Math.max(guess, answer) / Math.min(guess, answer);
+  if (ratio <= 2) return { ...WITHIN_DOUBLE, off };
   return { ...MISS, off };
 }
 
 function emojiFor(points) {
   const band = BANDS.find(b => b.points === points);
-  return band ? band.emoji : MISS.emoji;
+  if (band) return band.emoji;
+  return points === WITHIN_DOUBLE.points ? WITHIN_DOUBLE.emoji : MISS.emoji;
+}
+
+function sum(list) {
+  return list.reduce((a, b) => a + b, 0);
+}
+function totalScore() {
+  return sum(today.scores) + sum(today.timeBonus);
 }
 
 // ============================================================
 //  Number formatting
 // ============================================================
 function full(n) {
-  return n.toLocaleString("en-NG");
+  return n == null ? "No answer" : n.toLocaleString("en-NG");
 }
 function short(n) {
+  if (n == null) return "nothing";
   const units = [[1e12, " trillion"], [1e9, " billion"], [1e6, " million"], [1e3, "k"]];
   for (const [size, label] of units) {
     if (n >= size) return +(n / size).toFixed(2) + label;
@@ -147,6 +171,35 @@ function renderProgress() {
     .join("");
 }
 
+// ============================================================
+//  Timer
+// ============================================================
+let timerId = null;
+
+function secondsLeft() {
+  const elapsed = (Date.now() - today.startedAt) / 1000;
+  return Math.max(0, SECONDS_PER_QUESTION - elapsed);
+}
+
+function startTimer() {
+  stopTimer();
+  const tick = () => {
+    const left = secondsLeft();
+    $("timer").textContent = left.toFixed(1) + "s";
+    if (left <= 0) submitGuess(true);
+  };
+  tick();
+  timerId = setInterval(tick, 100);
+}
+
+function stopTimer() {
+  if (timerId) clearInterval(timerId);
+  timerId = null;
+}
+
+// ============================================================
+//  Rounds
+// ============================================================
 function showQuestion() {
   const r = currentRound();
   const q = TODAY_QS[r];
@@ -157,33 +210,85 @@ function showQuestion() {
   $("guessInput").value = "";
   $("preview").textContent = "";
   $("error").textContent = "";
+  $("bankLabel").textContent = `Time bank: ${sum(today.timeBonus)} pts`;
   show("round");
   $("guessInput").focus();
+
+  // Only start the clock if it isn't already running for this round
+  // (e.g. after a page refresh, the old start time is kept).
+  if (!today.startedAt) {
+    today.startedAt = Date.now();
+    save("nn_today", today);
+  }
+  startTimer();
 }
 
-function showReveal(index) {
+function submitGuess(timedOut) {
+  const r = currentRound();
+  if (r >= ROUNDS) return;
+  const q = TODAY_QS[r];
+  const guess = parseGuess($("guessInput").value, q.unit);
+
+  if (!timedOut && (guess === null || guess <= 0)) {
+    $("error").textContent = "Type a number, e.g. 75000 or 75k";
+    return;
+  }
+
+  stopTimer();
+  const left = timedOut ? 0 : secondsLeft();
+  const points = scoreGuess(guess, q.answer).points;
+  const bonus = points > 0 ? Math.round(left * POINTS_PER_BANKED_SECOND) : 0;
+
+  today.guesses.push(guess && guess > 0 ? guess : null);
+  today.scores.push(points);
+  today.timeBonus.push(bonus);
+  today.startedAt = null;
+  save("nn_today", today);
+
+  if (today.guesses.length === ROUNDS) recordFinish();
+  showReveal(r, timedOut);
+}
+
+function showReveal(index, timedOut) {
   const q = TODAY_QS[index];
   const guess = today.guesses[index];
   const result = scoreGuess(guess, q.answer);
+  const bonus = today.timeBonus[index];
+
   $("revealLabel").textContent = `Round ${index + 1} of ${ROUNDS}`;
   $("revealPoints").textContent = `${result.emoji} +${result.points}`;
   $("revealGuess").textContent = full(guess);
   $("revealAnswer").textContent = full(q.answer);
-  const pct = Math.round(result.off * 100);
-  $("revealOff").textContent = pct === 0
-    ? "Spot on!"
-    : `You were ${pct}% ${guess > q.answer ? "too high" : "too low"}`;
+
+  if (guess == null) {
+    $("revealOff").textContent = "Time's up — no answer";
+  } else {
+    const pct = Math.round(result.off * 1000) / 10; // one decimal place
+    $("revealOff").textContent = pct === 0
+      ? "Spot on!"
+      : `You were ${pct}% ${guess > q.answer ? "too high" : "too low"}`;
+  }
+
+  $("revealBonus").textContent = timedOut
+    ? "Time ran out — nothing banked"
+    : bonus > 0
+      ? `⏱ +${bonus} banked from leftover time`
+      : "No time bonus (round scored 0)";
+
   $("revealSource").textContent = q.source ? `Source: ${q.source}` : "";
   $("nextBtn").textContent = index === ROUNDS - 1 ? "See my score" : "Next question";
   show("reveal");
 }
 
 function showDone() {
-  const total = today.scores.reduce((a, b) => a + b, 0);
-  $("totalScore").innerHTML = `${total}<small>/${ROUNDS * 100}</small>`;
+  stopTimer();
+  $("totalScore").innerHTML = `${totalScore()}<small>/${MAX_TOTAL}</small>`;
+  $("scoreBreakdown").textContent =
+    `${sum(today.scores)} from guesses + ${sum(today.timeBonus)} time bonus`;
   $("squares").textContent = today.scores.map(emojiFor).join("");
   $("summary").innerHTML = TODAY_QS.map((q, i) =>
-    `<li>${q.q}<br><strong>${short(q.answer)}</strong> — you said ${short(today.guesses[i])} (${today.scores[i]} pts)</li>`
+    `<li>${q.q}<br><strong>${short(q.answer)}</strong> — you said ${short(today.guesses[i])} ` +
+    `(${today.scores[i]} pts + ${today.timeBonus[i]} time)</li>`
   ).join("");
   show("done");
   startCountdown();
@@ -199,6 +304,7 @@ $("startBtn").addEventListener("click", () => {
 
 $("guessInput").addEventListener("input", () => {
   const q = TODAY_QS[currentRound()];
+  if (!q) return;
   const val = parseGuess($("guessInput").value, q.unit);
   $("error").textContent = "";
   $("preview").textContent = val !== null && $("guessInput").value.trim()
@@ -208,18 +314,7 @@ $("guessInput").addEventListener("input", () => {
 
 $("guessForm").addEventListener("submit", e => {
   e.preventDefault();
-  const r = currentRound();
-  const q = TODAY_QS[r];
-  const guess = parseGuess($("guessInput").value, q.unit);
-  if (guess === null || guess <= 0) {
-    $("error").textContent = "Type a number, e.g. 75000 or 75k";
-    return;
-  }
-  today.guesses.push(guess);
-  today.scores.push(scoreGuess(guess, q.answer).points);
-  save("nn_today", today);
-  if (today.guesses.length === ROUNDS) recordFinish();
-  showReveal(r);
+  submitGuess(false);
 });
 
 $("nextBtn").addEventListener("click", () => {
@@ -228,7 +323,7 @@ $("nextBtn").addEventListener("click", () => {
 });
 
 function recordFinish() {
-  const total = today.scores.reduce((a, b) => a + b, 0);
+  const total = totalScore();
   stats.played += 1;
   stats.total += total;
   stats.best = Math.max(stats.best, total);
@@ -242,10 +337,9 @@ function recordFinish() {
 //  Sharing
 // ============================================================
 $("shareBtn").addEventListener("click", async () => {
-  const total = today.scores.reduce((a, b) => a + b, 0);
   const text =
-    `Naija's Numbers #${PUZZLE_NO} — ${total}/${ROUNDS * 100}\n` +
-    today.scores.map(emojiFor).join("") + "\n" +
+    `Naija's Numbers #${PUZZLE_NO} — ${totalScore()}/${MAX_TOTAL}\n` +
+    today.scores.map(emojiFor).join("") + ` ⏱+${sum(today.timeBonus)}\n` +
     location.href.split("?")[0];
   try {
     if (navigator.share) {
@@ -296,8 +390,13 @@ $("closeStats").addEventListener("click", () => $("statsDialog").close());
 //  Start up
 // ============================================================
 $("dayLabel").textContent = `Puzzle #${PUZZLE_NO}`;
+$("maxPerRound").textContent = MAX_ROUND_POINTS;
+$("secsPerQ").textContent = SECONDS_PER_QUESTION;
 if (currentRound() >= ROUNDS) {
   showDone();
+} else if (today.startedAt) {
+  // They refreshed mid-question: drop them straight back in, clock still running
+  showQuestion();
 } else if (currentRound() > 0) {
   $("startBtn").textContent = "Continue today's game";
 }

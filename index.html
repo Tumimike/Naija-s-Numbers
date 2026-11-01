@@ -27,7 +27,8 @@
         <li>You get <strong>5 questions</strong> about Lagos.</li>
         <li>Each one tells you if the answer is in hundreds, thousands, millions or billions.</li>
         <li>Type your guess in full (<code>2500000</code>) or short (<code>2.5m</code>).</li>
-        <li>The closer you are, the more points you get. Max <strong>100</strong> per round.</li>
+        <li>The closer you are, the more points you get. Up to <strong id="maxPerRound"></strong> per round.</li>
+        <li>You have <strong id="secsPerQ"></strong> seconds per question. Leftover time is banked as bonus points.</li>
       </ul>
       <button class="btn" id="startBtn">Start today's game</button>
     </section>
@@ -36,6 +37,8 @@
     <section id="round" class="card hidden">
       <div class="progress" id="progress"></div>
       <p class="round-label" id="roundLabel"></p>
+      <p class="timer" id="timer"></p>
+      <p class="bank" id="bankLabel"></p>
       <h2 class="question" id="questionText"></h2>
       <p class="hint" id="hintText"></p>
       <form id="guessForm" autocomplete="off">
@@ -55,6 +58,7 @@
         <div><span>Answer</span><strong id="revealAnswer"></strong></div>
       </div>
       <p class="off" id="revealOff"></p>
+      <p class="bonus" id="revealBonus"></p>
       <p class="source" id="revealSource"></p>
       <button class="btn" id="nextBtn">Next</button>
     </section>
@@ -63,6 +67,7 @@
     <section id="done" class="card hidden">
       <p class="day-label">Today's score</p>
       <div class="total" id="totalScore"></div>
+      <p class="breakdown" id="scoreBreakdown"></p>
       <div class="squares" id="squares"></div>
       <ol class="summary" id="summary"></ol>
       <button class="btn" id="shareBtn">Share score</button>
