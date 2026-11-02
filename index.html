@@ -1,96 +1,75 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Naija's Numbers</title>
-  <meta name="description" content="A daily Lagos guessing game. Five questions, one score." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Naija's Numbers</title>
+<meta name="description" content="A daily Nigerian number-guessing game. Five questions, closer guesses go further through the go-slow.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="top">
-    <div class="stripes" aria-hidden="true"></div>
-    <h1>Naija's <span>Numbers</span></h1>
-    <p class="tagline">Guess the Lagos numbers. Five rounds. Every day.</p>
-    <button class="icon-btn" id="statsBtn" aria-label="Your stats">📊</button>
-  </header>
+<div id="stage">
+  <canvas id="cv" aria-label="Pixel-art traffic jam crossing Nigerian cities"></canvas>
 
-  <main id="app">
-    <!-- Intro screen -->
-    <section id="intro" class="card">
-      <p class="day-label" id="dayLabel"></p>
-      <h2>How to play</h2>
-      <ul class="rules">
-        <li>You get <strong>5 questions</strong> about Lagos.</li>
-        <li>Each one tells you if the answer is in hundreds, thousands, millions or billions.</li>
-        <li>Type your guess in full (<code>2500000</code>) or short (<code>2.5m</code>).</li>
-        <li>The closer you are, the more points you get. Up to <strong id="maxPerRound"></strong> per round.</li>
-        <li>You have <strong id="secsPerQ"></strong> seconds per question.</li>
-        <li>Answer with 5+ seconds left for a time bonus, up to 30 points per round.</li>
-      </ul>
-      <button class="btn" id="startBtn">Start today's game</button>
-    </section>
-
-    <!-- Question screen -->
-    <section id="round" class="card hidden">
-      <div class="progress" id="progress"></div>
-      <p class="round-label" id="roundLabel"></p>
-      <p class="timer" id="timer"></p>
-      <p class="bank" id="bankLabel"></p>
-      <h2 class="question" id="questionText"></h2>
-      <p class="hint" id="hintText"></p>
-      <form id="guessForm" autocomplete="off">
-        <input id="guessInput" inputmode="decimal" placeholder="Your guess" aria-label="Your guess" />
-        <button class="btn" type="submit">Lock it in</button>
-      </form>
-      <p class="preview" id="preview"></p>
-      <p class="error" id="error"></p>
-    </section>
-
-    <!-- Round result -->
-    <section id="reveal" class="card hidden">
-      <p class="round-label" id="revealLabel"></p>
-      <div class="points" id="revealPoints"></div>
-      <div class="compare">
-        <div><span>Your guess</span><strong id="revealGuess"></strong></div>
-        <div><span>Answer</span><strong id="revealAnswer"></strong></div>
-      </div>
-      <p class="off" id="revealOff"></p>
-      <p class="bonus" id="revealBonus"></p>
-      <p class="source" id="revealSource"></p>
-      <button class="btn" id="nextBtn">Next</button>
-    </section>
-
-    <!-- End of day -->
-    <section id="done" class="card hidden">
-      <p class="day-label">Today's score</p>
-      <div class="total" id="totalScore"></div>
-      <p class="breakdown" id="scoreBreakdown"></p>
-      <div class="squares" id="squares"></div>
-      <ol class="summary" id="summary"></ol>
-      <button class="btn" id="shareBtn">Share score</button>
-      <p class="copied hidden" id="copied">Copied! Paste it in the group chat.</p>
-      <p class="next">Next puzzle in <strong id="countdown"></strong></p>
-    </section>
-  </main>
-
-  <!-- Stats popup -->
-  <dialog id="statsDialog">
-    <h2>Your stats</h2>
-    <div class="stats-grid">
-      <div><strong id="stPlayed">0</strong><span>Played</span></div>
-      <div><strong id="stStreak">0</strong><span>Streak</span></div>
-      <div><strong id="stMax">0</strong><span>Best streak</span></div>
-      <div><strong id="stBest">0</strong><span>Best score</span></div>
-      <div><strong id="stAvg">0</strong><span>Average</span></div>
+  <div class="hud">
+    <div class="brand">
+      <b>NAIJA'S NUMBERS</b>
+      <div class="where" id="where">LAGOS</div>
+      <span id="wxChip"></span>
     </div>
-    <button class="btn" id="closeStats">Close</button>
-  </dialog>
+    <div class="pips" id="pips"></div>
+    <div class="score"><strong id="score">0</strong><small id="maxTotal">OF 1,900</small><button id="nightChip" type="button" aria-label="Switch between day and night"><i></i><span>DAY</span></button></div>
+  </div>
 
-  <script src="questions.js"></script>
-  <script src="game.js"></script>
+  <div id="card" hidden><i id="cardDot"></i><span id="cardBand"></span><span id="cardPts"></span></div>
+
+
+  <div id="panel">
+    <div class="wrap">
+      <div id="startView">
+        <button id="startBtn" style="width:100%">Take today's journey</button>
+      </div>
+      <div id="qView" hidden>
+        <div style="display:grid;gap:6px">
+          <div class="qtop"><span id="qNum">QUESTION 1 OF 5</span><span id="clock">18</span></div>
+          <div class="bar"><i id="barFill"></i></div>
+        </div>
+        <p id="qText"></p>
+        <form id="guessForm" autocomplete="off">
+          <input id="guess" inputmode="decimal" placeholder="Your guess" aria-label="Your guess">
+          <button type="submit">Lock in</button>
+        </form>
+        <p id="guessHint"></p>
+      </div>
+      <div id="revView" hidden>
+        <div class="reveal">
+          <div><span>Your guess</span><strong id="revGuess"></strong></div>
+          <div><span>Answer</span><strong id="revAnswer"></strong></div>
+        </div>
+        <p id="revOff"></p>
+        <p id="revSrc"></p>
+        <button id="pressOn" disabled>Press on →</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="result" hidden>
+    <div class="res">
+      <h2 id="resTitle"></h2>
+      <p class="tot" id="resTot">0<small> / 1,900</small></p>
+      <p class="tap" id="resTap"></p>
+      <ol id="resList"></ol>
+      <p class="far" id="resFar"></p>
+      <button id="shareBtn">Share score</button>
+      <p class="copied" id="copied" hidden></p>
+      <p class="next"><span id="countdown"></span><br><span id="resStats"></span></p>
+    </div>
+  </div>
+</div>
+<script src="questions.js"></script>
+<script src="game.js"></script>
 </body>
 </html>
