@@ -23,6 +23,7 @@ const COPY={
   copied:"Copied! Paste it in the group chat.",
   nextIn:"Next journey in",
   continueBtn:"Continue today's journey",
+  howto:"Five questions about Nigeria · 18 seconds each · the closer your guess, the further you get through the go-slow.",
   statsLine:(played,streak,best)=>`Played ${played} · Streak ${streak} · Best ${best}`,
 };
 // ===================== GAME SETTINGS (scoring and timer rules: do not change without asking) =====================
@@ -750,18 +751,39 @@ if(!today||today.day!==TODAY||!Array.isArray(today.slots))today={day:TODAY,guess
 let stats=loadKey('nn_stats',{played:0,streak:0,maxStreak:0,best:0,total:0,lastDay:null});
 const dayRand=rng(TODAY*7919);
 
+
+// ===================== LOGO =====================
+// pixel logo: "NAIJA'S" in the flag's green-white-green, "NUMBERS" black with a faint white outline
+const LOGO_FONT={N:['10001','11001','10101','10011','10001','10001','10001'],A:['01110','10001','10001','11111','10001','10001','10001'],I:['111','010','010','010','010','010','111'],
+  J:['00111','00010','00010','00010','00010','10010','01100'],"'":['1','1','0','0','0','0','0'],S:['01111','10000','10000','01110','00001','00001','11110'],
+  U:['10001','10001','10001','10001','10001','10001','01110'],M:['10001','11011','10101','10101','10001','10001','10001'],B:['11110','10001','10001','11110','10001','10001','11110'],
+  E:['11111','10000','10000','11110','10000','10000','11111'],R:['11110','10001','10001','11110','10100','10010','10001']};
+function drawLogo(){const cv=$('logo'),words=["NAIJA'S","NUMBERS"],P=2,GAP=3;
+  // each font pixel is 2x2 logo units, so the 1-unit outline stays thin and the letter shapes stay open
+  const wordW=w=>[...w].reduce((s,ch)=>s+LOGO_FONT[ch][0].length*P+GAP,-GAP);
+  const W=Math.max(...words.map(wordW))+4,H=7*P*2+6+4,k=Math.max(2,Math.floor(Math.min(innerWidth*.78,420)/W)),dpr=devicePixelRatio||1;
+  cv.width=W*k*dpr;cv.height=H*k*dpr;cv.style.width=W*k+'px';const g=cv.getContext('2d');g.setTransform(k*dpr,0,0,k*dpr,0,0);
+  const cells=[];words.forEach((w,li)=>{const ww=wordW(w),x0=Math.floor((W-ww)/2),y=2+li*(7*P+6);let x=x0;
+    for(const ch of w){const gl=LOGO_FONT[ch];gl.forEach((row,ry)=>{for(let rx=0;rx<row.length;rx++)if(row[rx]==='1')for(let sy=0;sy<P;sy++)for(let sx=0;sx<P;sx++)cells.push({x:x+rx*P+sx,y:y+ry*P+sy,li,u:(x+rx*P+sx-x0)/ww})});x+=gl[0].length*P+GAP}});
+  const has=new Set(cells.map(c=>c.x+','+c.y));
+  for(const c of cells)if(!c.li){for(const dy of[1,2])if(!has.has(c.x+','+(c.y+dy))){g.fillStyle='#002f1c';g.fillRect(c.x,c.y+dy,1,1)}}
+  for(const c of cells)for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]])if(!has.has((c.x+dx)+','+(c.y+dy))){g.fillStyle=c.li?'rgba(255,255,255,.6)':'#05060c';g.fillRect(c.x+dx,c.y+dy,1,1)}
+  for(const c of cells){g.fillStyle=c.li?'#08090c':(c.u<1/3||c.u>=2/3?'#008751':'#ffffff');g.fillRect(c.x,c.y,1,1)}}
+function placeIntro(){const it=$('intro');if(it.hidden)return;it.style.bottom=(panel.hidden?0:panel.offsetHeight)+'px'}
+
 // ===================== UI =====================
 const fmt=n=>Math.round(n).toLocaleString('en-NG');
 function buildUI(){$('pips').innerHTML='<span class="pip"></span>'.repeat(ROUNDS);
   $('startBtn').textContent=COPY.start;document.querySelector('#guessForm button').textContent=COPY.lockIn;$('pressOn').textContent=COPY.pressOn;
   $('resTitle').textContent=`${COPY.summaryTitle} · #${PUZZLE_NO}`;$('resTap').textContent=COPY.summaryTap;$('shareBtn').textContent=COPY.share;$('maxTotal').textContent=`OF ${fmt(MAX_TOTAL)}`;
-  $('startBtn').onclick=()=>{$('startView').hidden=true;nextQuestion()};
+  $('howto').textContent=COPY.howto;drawLogo();addEventListener('resize',()=>{drawLogo();placeIntro()});
+  $('startBtn').onclick=()=>{$('intro').hidden=true;$('startView').hidden=true;nextQuestion()};
   $('guessForm').onsubmit=e=>{e.preventDefault();submit(false)};
   $('pressOn').onclick=()=>{$('card').hidden=true;if(round>=ROUNDS)return;nextQuestion()};
   $('nightChip').onclick=()=>{autoNight=false;setDayNight(nightTarget?0:1)};
   $('shareBtn').onclick=share;syncPips()}
 function syncPips(){[...$('pips').children].forEach((p,i)=>{p.style.background=results[i]?results[i].band.col:'';p.classList.toggle('now',i===round&&round<ROUNDS&&phase!=='start')})}
-function nextQuestion(){phase='question';const q=TODAY_QS[round];$('startView').hidden=true;$('revView').hidden=true;$('qView').hidden=false;
+function nextQuestion(){phase='question';const q=TODAY_QS[round];$('intro').hidden=true;$('startView').hidden=true;$('revView').hidden=true;$('qView').hidden=false;
   $('qNum').textContent=COPY.questionOf(round+1,ROUNDS);$('qText').textContent=q.q;$('guess').value='';$('guessHint').textContent=COPY.hint(q.unit);
   // keep the clock running across a refresh: only start it if this question hasn't started yet
   if(!today.startedAt){today.startedAt=Date.now();saveKey('nn_today',today)}
@@ -824,9 +846,10 @@ function begin(){round=0;score=0;shown=0;results=[];night=0;autoNight=true;setDa
     front[slot]=car;pi=slot;round=i+1;const tb=today.timeBonus[i];score+=band.pts+tb;results.push({band,tb,total:band.pts+tb,car,slot,q:TODAY_QS[i],guess:today.guesses[i],timedOut:today.timedOut[i]})});
   shown=score;$('score').textContent=fmt(score);if(round>=nightAfter){autoNight=false;night=1;setDayNight(1)}
   camX=camFor(pi);syncPips();
-  if(round>=ROUNDS){$('startView').hidden=true;showResult()}
+  if(round>=ROUNDS){$('intro').hidden=true;$('startView').hidden=true;showResult()}
   else if(today.startedAt){nextQuestion()}
-  else if(round>0)$('startBtn').textContent=COPY.continueBtn}
+  else if(round>0)$('startBtn').textContent=COPY.continueBtn;
+  placeIntro()}
 
 function regionAt(wx){const L=4*RW,u=((wx%L)+L)%L,i=Math.floor(u/RW),f=(u-i*RW)/RW;const w={};ORDER.forEach(k=>w[k]=0);
   const cur=route[i],nxt=route[(i+1)%4],prv=route[(i+3)%4];const edge=.12;
