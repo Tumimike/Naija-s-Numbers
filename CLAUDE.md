@@ -22,6 +22,8 @@ Daily Lagos number-guessing game (inspired by Wordle / Krillion). Plain HTML/CSS
 - Night falls after a random round (same for everyone that day); the DAY/NIGHT button toggles it.
 - The Bugatti, Porsche, Cybertruck and McLaren sprites are the owner's friend's pixel art, used with permission (embedded as `FRIEND_ART`).
 - Only real, named places are labelled in the HUD.
+- Start screen: pixel logo ("NAIJA'S" green-white-green, "NUMBERS" black with a faint white outline) in a box, gently bobbing, with the start button centred under it. Drawn by `drawLogo()` in `game.js`.
+- After each round a chip in the middle of the screen shows the accuracy band and points.
 
 ## Owner's instructions
 - Core mechanics are done and tested. Don't change scoring or timer rules unless asked.
