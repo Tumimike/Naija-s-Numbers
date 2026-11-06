@@ -24,6 +24,13 @@
     <div class="score"><strong id="score">0</strong><small id="maxTotal">OF 1,900</small><button id="nightChip" type="button" aria-label="Switch between day and night"><i></i><span>DAY</span></button></div>
   </div>
 
+  <div id="qBox" hidden>
+    <div class="qcard">
+      <span id="qCat"></span>
+      <p id="qText"></p>
+    </div>
+  </div>
+
   <div id="card" hidden><i id="cardDot"></i><span id="cardBand"></span><span id="cardPts"></span></div>
 
 
@@ -42,7 +49,6 @@
           <div class="qtop"><span id="qNum">QUESTION 1 OF 5</span><span id="clock">18</span></div>
           <div class="bar"><i id="barFill"></i></div>
         </div>
-        <p id="qText"></p>
         <form id="guessForm" autocomplete="off">
           <input id="guess" inputmode="decimal" placeholder="Your guess" aria-label="Your guess">
           <button type="submit">Lock in</button>
