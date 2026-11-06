@@ -14,7 +14,8 @@ const COPY={
   // the question box in the middle of the screen
   categories:{culture:'Culture, music & sport',money:'Money',transport:'Transport & traffic',places:'Places & landmarks',market:'Market data'},
   // the hint is just the size of the answer, shown in brackets after the question
-  magnitude:q=>q.type==='year'?'(year)':`(${q.cur?q.cur+' ':''}${q.unit||''})`,
+  // worked out from the answer itself, e.g. 60,491 → (tens of thousands), 650,000 → (hundreds of thousands)
+  magnitude:q=>q.type==='year'?'(year)':`(${q.cur?q.cur+' ':''}${sizeWords(q.answer)})`,
   // the small line under the answer box
   typeTip:"Type 75k, 2.5m or the full number.",
   typeTipYear:"Type the year, like 1999.",
@@ -796,6 +797,8 @@ function drawLogo(){const cv=$('logo'),words=["NAIJA'S","NUMBERS"],P=2,GAP=3;
 function placeIntro(){const it=$('intro');if(it.hidden)return;it.style.bottom=(panel.hidden?0:panel.offsetHeight)+'px'}
 
 // ===================== UI =====================
+function sizeWords(n){const d=Math.floor(Math.log10(n)),g=Math.floor(d/3),r=d%3,big=['','thousands','millions','billions','trillions'][g]||'trillions';
+  if(g===0)return r===2?'hundreds':'tens';return r===0?big:(r===1?'tens of ':'hundreds of ')+big}
 const fmt=n=>Math.round(n).toLocaleString('en-NG');
 // Source line: a plain "Source ↗" button that opens the question's url in a new tab, then the source name.
 function srcInto(el,q){el.textContent='';if(q.url){const a=document.createElement('a');a.className='srcBtn';a.href=q.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=COPY.sourceBtn;a.title=q.source||'';el.appendChild(a)}else el.append(COPY.sourceLabel+': ');const n=document.createElement('span');n.className='srcName';n.textContent=q.source||'—';el.appendChild(n)}
