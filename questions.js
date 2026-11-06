@@ -15,8 +15,9 @@
 //    answer  – the true number, written in full (no commas)
 //    type    – write type: "year" if the answer is a year. Leave it out otherwise.
 //    unit    – for number answers only: "tens", "hundreds", "thousands",
-//              "millions", "billions" or "trillions". This is the hint:
-//              it shows in brackets after the question, e.g. (thousands).
+//              "millions", "billions" or "trillions". Used when players type a
+//              short number (2.5 on millions = 2,500,000). The hint in brackets
+//              is worked out from the answer, e.g. 60491 → (tens of thousands).
 //    cur     – add cur: "₦" for naira answers, so the hint reads (₦ trillions).
 //              Use "$" for dollar answers. Year answers show (year).
 //    source  – where the number came from (shown after the round)

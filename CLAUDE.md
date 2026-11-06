@@ -9,7 +9,7 @@ Daily Lagos number-guessing game (inspired by Wordle / Krillion). Plain HTML/CSS
 
 ## Rules (as built)
 - 5 rounds a day. Puzzle #1 = 1 Nov 2026. Day rolls over at midnight Lagos time (UTC+1). Day N takes the Nth question of each of the 5 categories (looping per category), shown in a day-seeded random order (`pickToday()`).
-- Questions appear in a box in the middle of the screen: category, then the question with its hint in brackets. The hint is only the size of the answer: (thousands), (₦ trillions), (year). No written clues. The answer box stays docked at the bottom.
+- Questions appear in a box in the middle of the screen: category, then the question with its hint in brackets. The hint is only the size of the answer, worked out from the answer by `sizeWords()`: (tens of thousands), (hundreds of millions), (₦ trillions), (year). No written clues. The answer box stays docked at the bottom.
 - Number questions have a unit (hundreds/thousands/millions/billions/trillions). Input accepts `2500000`, `2,500,000`, `2.5m`, `2.5 million`, `2500k`; a bare small number uses the hint unit (`2.5` on millions = 2,500,000).
 - Points per round by % off the answer: ≤1% 350, ≤2.5% 250, ≤5% 150, ≤10% 100, ≤25% 75, ≤40% 50, half-to-double 20, else 0.
 - Year questions (`type:"year"`) score by years off instead (`YEAR_LIMITS`): exact 350, 1 year 250, 2 years 150, 5 years 100, 10 years 75, 20 years 50, 40 years 20, else 0. Same colours/emoji as the % bands.
