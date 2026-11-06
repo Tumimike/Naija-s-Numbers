@@ -11,11 +11,20 @@ const COPY={
   lockIn:"Lock in",
   pressOn:"Press on →",
   questionOf:(n,total)=>`QUESTION ${n} OF ${total}`,
-  hint:unit=>`Hint: in ${unit}. Type 75k, 2.5m or the full number.`,
+  // the question box in the middle of the screen
+  categories:{culture:'Culture, music & sport',money:'Money',transport:'Transport & traffic',places:'Places & landmarks',market:'Market data'},
+  // the hint is just the size of the answer, shown in brackets after the question
+  magnitude:q=>q.type==='year'?'(year)':`(${q.cur?q.cur+' ':''}${q.unit||''})`,
+  // the small line under the answer box
+  typeTip:"Type 75k, 2.5m or the full number.",
+  typeTipYear:"Type the year, like 1999.",
   unreadable:"Couldn't read that. Try 75000, 75k or 75,000.",
+  unreadableYear:"Couldn't read that. Type a year, like 1999.",
+  yearsOff:n=>n===0?'Spot on':`${n} year${n===1?'':'s'} off`,
   noGuess:"No guess",
   timedOut:"Time ran out with no guess",
   sourceLabel:"Source",
+  sourceBtn:"Source ↗",
   summaryTitle:"TODAY'S JOURNEY",
   summaryTap:"Tap a round to see the answer and where the number came from.",
   reached:(place,area)=>`You got as far as <span>${place}</span>, ${area}.`,
@@ -46,11 +55,19 @@ const ALL=[...BANDS,DOUBLE,MISS];
 const ODDS={d:{chiron:.6,porsche:.4},g:{gwagon:.35,mclaren:.35,porsche:.3},c:{cruiser:.35,tesla:.25,ducati:.2,porsche:.2},t:{prado:.4,tesla:.2,ducati:.2,porsche:.2},
   q:{suzuki:.25,prius:.2,sedan:.2,rav4:.15,hilux:.2},f:{danfo:.5,keke:.5},h:{keke:.6,danfo:.4},m:{okada:1}};
 const PX_PER_POINT=3.3;      // camera travel per point, before the band multiplier
-const UNIT={hundreds:100,thousands:1e3,millions:1e6,billions:1e9};
-const SUF={h:100,hundred:100,hundreds:100,k:1e3,thousand:1e3,thousands:1e3,m:1e6,mil:1e6,mill:1e6,million:1e6,millions:1e6,b:1e9,bn:1e9,billion:1e9,billions:1e9};
-function parseGuess(raw,unit){const s=raw.toLowerCase().replace(/[₦,\s]/g,'');const m=s.match(/^(\d+(?:\.\d+)?|\.\d+)([a-z]*)$/);if(!m)return null;
+const UNIT={tens:10,hundreds:100,thousands:1e3,millions:1e6,billions:1e9,trillions:1e12};
+const SUF={h:100,hundred:100,hundreds:100,k:1e3,thousand:1e3,thousands:1e3,m:1e6,mil:1e6,mill:1e6,million:1e6,millions:1e6,b:1e9,bn:1e9,billion:1e9,billions:1e9,t:1e12,tn:1e12,trn:1e12,trillion:1e12,trillions:1e12};
+// Year questions (type:"year") are scored by how many years off the guess is, because % off doesn't work for years
+// (1990 is only 0.5% off 2000). Same points and colours as the normal bands, just different limits.
+const YEAR_LIMITS={d:[0,'Exact year'],g:[1,'1 year off'],c:[2,'Within 2 years'],t:[5,'Within 5 years'],q:[10,'Within 10 years'],f:[20,'Within 20 years']};
+const YBANDS=BANDS.map(b=>({...b,years:YEAR_LIMITS[b.id][0],label:YEAR_LIMITS[b.id][1]}));
+const YDOUBLE={...DOUBLE,years:40,label:'Within 40 years'};
+const YALL=[...YBANDS,YDOUBLE,MISS];
+const isYear=q=>q&&q.type==='year';
+const bandById=(q,id)=>(isYear(q)?YALL:ALL).find(b=>b.id===id);
+function parseGuess(raw,unit,q){if(isYear(q)){const y=raw.replace(/[\s,]/g,'');return /^\d{1,4}$/.test(y)?parseInt(y,10):null}const s=raw.toLowerCase().replace(/[₦$,\s]/g,'');const m=s.match(/^(\d+(?:\.\d+)?|\.\d+)([a-z]*)$/);if(!m)return null;
   const n=parseFloat(m[1]);if(m[2]){if(!(m[2]in SUF))return null;return Math.round(n*SUF[m[2]])}const z=UNIT[unit]||1;return Math.round(n<z?n*z:n)}
-function scoreGuess(g,a){if(!g||g<=0)return MISS;const off=Math.abs(g-a)/a;for(const b of BANDS)if(off<=b.within)return b;return Math.max(g,a)/Math.min(g,a)<=2?DOUBLE:MISS}
+function scoreGuess(g,a,q){if(!g||g<=0)return MISS;if(isYear(q)){const d=Math.abs(g-a);for(const b of YBANDS)if(d<=b.years)return b;return d<=YDOUBLE.years?YDOUBLE:MISS}const off=Math.abs(g-a)/a;for(const b of BANDS)if(off<=b.within)return b;return Math.max(g,a)/Math.min(g,a)<=2?DOUBLE:MISS}
 
 // ===================== PIXEL HELPERS =====================
 const $=id=>document.getElementById(id);
@@ -742,7 +759,14 @@ function resize(){const r=stage.getBoundingClientRect(),cssW=r.width,cssH=r.heig
 // Everyone gets the same 5 questions each day (from questions.js). Day rolls over at midnight Lagos time.
 const ROUNDS=5,LAUNCH_DATE=Date.UTC(2026,10,1),LAGOS_OFFSET_MS=60*60*1000,DAY_MS=24*60*60*1000;
 const TODAY=Math.floor((Date.now()+LAGOS_OFFSET_MS)/DAY_MS),PUZZLE_NO=TODAY-Math.floor(LAUNCH_DATE/DAY_MS)+1;
-const TODAY_QS=Array.from({length:ROUNDS},(_,i)=>QUESTIONS[(((PUZZLE_NO-1)*ROUNDS)%QUESTIONS.length+i)%QUESTIONS.length]);
+// One question from each category every day (day N takes the Nth question of each category, looping),
+// shown in a random order that is the same for everyone that day.
+const CATS=Object.keys(COPY.categories);
+function pickToday(){const byCat=CATS.map(c=>QUESTIONS.filter(q=>q.cat===c)).filter(l=>l.length);
+  let qs;if(byCat.length>=ROUNDS)qs=byCat.slice(0,ROUNDS).map(l=>l[(PUZZLE_NO-1)%l.length]);
+  else qs=Array.from({length:ROUNDS},(_,i)=>QUESTIONS[(((PUZZLE_NO-1)*ROUNDS)%QUESTIONS.length+i)%QUESTIONS.length]);
+  const r=rng(TODAY*104729);for(let i=qs.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[qs[i],qs[j]]=[qs[j],qs[i]]}return qs}
+const TODAY_QS=pickToday();
 const MAX_TOTAL=ROUNDS*BANDS[0].pts+ROUNDS*TIME_TIERS[0].p;
 function loadKey(k,f){try{const r=localStorage.getItem(k);return r?JSON.parse(r):f}catch{return f}}
 function saveKey(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
@@ -773,10 +797,14 @@ function placeIntro(){const it=$('intro');if(it.hidden)return;it.style.bottom=(p
 
 // ===================== UI =====================
 const fmt=n=>Math.round(n).toLocaleString('en-NG');
+// Source line: a plain "Source ↗" button that opens the question's url in a new tab, then the source name.
+function srcInto(el,q){el.textContent='';if(q.url){const a=document.createElement('a');a.className='srcBtn';a.href=q.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=COPY.sourceBtn;a.title=q.source||'';el.appendChild(a)}else el.append(COPY.sourceLabel+': ');const n=document.createElement('span');n.className='srcName';n.textContent=q.source||'—';el.appendChild(n)}
+const fmtQ=(q,n)=>isYear(q)?String(Math.round(n)):fmt(n);
+function placeQ(){const b=$('qBox');if(b.hidden)return;b.style.top=(document.querySelector('.hud').getBoundingClientRect().bottom+8)+'px';b.style.bottom=(panel.offsetHeight+8)+'px'}
 function buildUI(){$('pips').innerHTML='<span class="pip"></span>'.repeat(ROUNDS);
   $('startBtn').textContent=COPY.start;document.querySelector('#guessForm button').textContent=COPY.lockIn;$('pressOn').textContent=COPY.pressOn;
   $('resTitle').textContent=`${COPY.summaryTitle} · #${PUZZLE_NO}`;$('resTap').textContent=COPY.summaryTap;$('shareBtn').textContent=COPY.share;$('maxTotal').textContent=`OF ${fmt(MAX_TOTAL)}`;
-  $('howto').textContent=COPY.howto;drawLogo();addEventListener('resize',()=>{drawLogo();placeIntro()});
+  $('howto').textContent=COPY.howto;drawLogo();addEventListener('resize',()=>{drawLogo();placeIntro();placeQ()});
   $('startBtn').onclick=()=>{$('intro').hidden=true;$('startView').hidden=true;nextQuestion()};
   $('guessForm').onsubmit=e=>{e.preventDefault();submit(false)};
   $('pressOn').onclick=()=>{$('card').hidden=true;if(round>=ROUNDS)return;nextQuestion()};
@@ -784,21 +812,24 @@ function buildUI(){$('pips').innerHTML='<span class="pip"></span>'.repeat(ROUNDS
   $('shareBtn').onclick=share;syncPips()}
 function syncPips(){[...$('pips').children].forEach((p,i)=>{p.style.background=results[i]?results[i].band.col:'';p.classList.toggle('now',i===round&&round<ROUNDS&&phase!=='start')})}
 function nextQuestion(){phase='question';const q=TODAY_QS[round];$('intro').hidden=true;$('startView').hidden=true;$('revView').hidden=true;$('qView').hidden=false;
-  $('qNum').textContent=COPY.questionOf(round+1,ROUNDS);$('qText').textContent=q.q;$('guess').value='';$('guessHint').textContent=COPY.hint(q.unit);
+  $('qNum').textContent=COPY.questionOf(round+1,ROUNDS);$('qText').textContent=q.q+' ';const mag=document.createElement('span');mag.className='mag';mag.textContent=COPY.magnitude(q);$('qText').appendChild(mag);$('guess').value='';
+  $('qCat').textContent=COPY.categories[q.cat]||'';
+  $('guess').setAttribute('inputmode',isYear(q)?'numeric':'decimal');$('guess').placeholder=isYear(q)?'Your year':'Your guess';
+  $('guessHint').textContent=isYear(q)?COPY.typeTipYear:COPY.typeTip;$('qBox').hidden=false;
   // keep the clock running across a refresh: only start it if this question hasn't started yet
   if(!today.startedAt){today.startedAt=Date.now();saveKey('nn_today',today)}
-  timerOn=true;syncPips();if(matchMedia('(pointer:fine)').matches)$('guess').focus();resize()}
+  timerOn=true;syncPips();if(matchMedia('(pointer:fine)').matches)$('guess').focus();resize();placeQ()}
 function secsLeft(){return Math.max(0,SECONDS-(Date.now()-today.startedAt)/1000)}
 function tickTimer(){if(!timerOn)return;const s=secsLeft();$('clock').textContent=Math.ceil(s);$('clock').classList.toggle('low',s<5);$('guess').classList.toggle('urgent',s<5);$('barFill').style.transform=`scaleX(${s/SECONDS})`;
   $('barFill').style.background=s>=10?'var(--cyan)':s>=5?'var(--gold)':'#ff6b5a';if(s<=0)submit(true)}
-function submit(timedOut){if(phase!=='question')return;const box=$('guessForm').getBoundingClientRect();const q=TODAY_QS[round],raw=$('guess').value.trim();const g=raw?parseGuess(raw,q.unit):null;
-  if(!timedOut&&(g===null||g<=0)){$('guessHint').textContent=COPY.unreadable;return}
-  timerOn=false;phase='moving';$('guess').classList.remove('urgent');const left=secsLeft(),band=scoreGuess(g,q.answer);
+function submit(timedOut){if(phase!=='question')return;const box=$('guessForm').getBoundingClientRect();const q=TODAY_QS[round],raw=$('guess').value.trim();const g=raw?parseGuess(raw,q.unit,q):null;
+  if(!timedOut&&(g===null||g<=0)){$('guessHint').textContent=isYear(q)?COPY.unreadableYear:COPY.unreadable;return}
+  timerOn=false;phase='moving';$('guess').classList.remove('urgent');const left=secsLeft(),band=scoreGuess(g,q.answer,q);
   const tb=band.pts>0&&!timedOut?(TIME_TIERS.find(x=>left>=x.s)||{p:0}).p:0;
-  $('qView').hidden=true;$('revView').hidden=false;$('pressOn').disabled=true;
-  $('revGuess').textContent=g?fmt(g):'—';$('revAnswer').textContent=fmt(q.answer);
-  $('revOff').textContent=(g?`${(Math.abs(g-q.answer)/q.answer*100).toFixed(1)}% off · ${band.label}`:timedOut?COPY.timedOut:COPY.noGuess)+(tb?` · locked in with ${Math.floor(left)}s left`:'');
-  $('revSrc').innerHTML=`${COPY.sourceLabel}: <span></span>`;$('revSrc').querySelector('span').textContent=q.source||'—';
+  $('qView').hidden=true;$('qBox').hidden=true;$('revView').hidden=false;$('pressOn').disabled=true;
+  $('revGuess').textContent=g?fmtQ(q,g):'—';$('revAnswer').textContent=fmtQ(q,q.answer);
+  $('revOff').textContent=(g?`${isYear(q)?(t=>t===band.label?t:t+' · '+band.label)(COPY.yearsOff(Math.abs(g-q.answer))):(Math.abs(g-q.answer)/q.answer*100).toFixed(1)+'% off · '+band.label}`:timedOut?COPY.timedOut:COPY.noGuess)+(tb?` · locked in with ${Math.floor(left)}s left`:'');
+  srcInto($('revSrc'),q);
   const r=fire(band,tb,box);Object.assign(r,{q,guess:g,timedOut});
   today.guesses.push(g&&g>0?g:null);today.scores.push(band.pts);today.timeBonus.push(tb);today.bands.push(band.id);today.cars.push({type:r.car.type,v:r.car.v});today.slots.push(r.slot);today.timedOut.push(!!timedOut);today.startedAt=null;
   saveKey('nn_today',today);if(today.slots.length===ROUNDS)recordFinish()}
@@ -826,9 +857,9 @@ function land(r){anim=null;showCard(r);
   if(round===nightAfter&&autoNight){autoNight=false;setDayNight(1)}
   if(round>=ROUNDS)setTimeout(showResult,1400);else{phase='landed';$('pressOn').disabled=false;$('pressOn').focus({preventScroll:true})}}
 function setDayNight(v){nightTarget=v;const c=$('nightChip');c.classList.toggle('night',!!v);c.querySelector('span').textContent=v?'NIGHT':'DAY'}
-function showResult(){phase='done';$('card').hidden=true;panel.hidden=true;$('resTot').innerHTML=`${fmt(score)}<small> / ${fmt(MAX_TOTAL)}</small>`;
-  $('resList').innerHTML=results.map((r,i)=>`<li><button class="row" id="row${i}" aria-expanded="false" aria-controls="det${i}"><span>${i+1}</span><canvas id="rc${i}"></canvas><span><b class="gv">${r.guess?fmt(r.guess):(r.timedOut?'Time up':'No guess')}</b><br><span style="color:var(--muted)">${r.band.label}</span></span><b>+${r.band.pts}${r.tb?` <span class="t">+${r.tb}</span>`:''}</b><i>▸</i></button><div class="detail" id="det${i}" hidden><q></q><span>Your guess: <b class="g"></b> · Answer: <b class="a"></b></span><span>${COPY.sourceLabel}: <span class="src"></span></span></div></li>`).join('');
-  results.forEach((r,i)=>{const d=$('det'+i);d.querySelector('q').textContent=r.q.q;d.querySelector('.g').textContent=r.guess?fmt(r.guess):(r.timedOut?COPY.timedOut:COPY.noGuess);d.querySelector('.a').textContent=fmt(r.q.answer);d.querySelector('.src').textContent=r.q.source||'—';
+function showResult(){phase='done';$('card').hidden=true;$('qBox').hidden=true;panel.hidden=true;$('resTot').innerHTML=`${fmt(score)}<small> / ${fmt(MAX_TOTAL)}</small>`;
+  $('resList').innerHTML=results.map((r,i)=>`<li><button class="row" id="row${i}" aria-expanded="false" aria-controls="det${i}"><span>${i+1}</span><canvas id="rc${i}"></canvas><span><b class="gv">${r.guess?fmtQ(r.q,r.guess):(r.timedOut?'Time up':'No guess')}</b><br><span style="color:var(--muted)">${r.band.label}</span></span><b>+${r.band.pts}${r.tb?` <span class="t">+${r.tb}</span>`:''}</b><i>▸</i></button><div class="detail" id="det${i}" hidden><q></q><span>Your guess: <b class="g"></b> · Answer: <b class="a"></b></span><span class="srcLine"></span></div></li>`).join('');
+  results.forEach((r,i)=>{const d=$('det'+i);d.querySelector('q').textContent=r.q.q;d.querySelector('.g').textContent=r.guess?fmtQ(r.q,r.guess):(r.timedOut?COPY.timedOut:COPY.noGuess);d.querySelector('.a').textContent=fmtQ(r.q,r.q.answer);srcInto(d.querySelector('.srcLine'),r.q);
     $('row'+i).onclick=()=>{const open=d.hidden;d.hidden=!open;$('row'+i).setAttribute('aria-expanded',open)};carCanvas($('rc'+i),r.car,2)});
   const L=nearestLandmark();$('resFar').innerHTML=COPY.reached(L[0],L[1]);
   const live=stats.lastDay>=TODAY-1?stats.streak:0;$('resStats').textContent=COPY.statsLine(stats.played,live,stats.best);
@@ -842,7 +873,7 @@ function startCountdown(){if(countdownId)return;const tick=()=>{const ms=Math.ma
 function begin(){round=0;score=0;shown=0;results=[];night=0;autoNight=true;setDayNight(0);laneX=laneX2=0;anim=null;phase='start';timerOn=false;
   nightAfter=1+(dayRand()*4|0);const start=TODAY%4;route=ORDER.slice(start).concat(ORDER.slice(0,start));buildWorld();genTraffic();genPeds();resize();
   // put back anything already played today
-  today.slots.forEach((slot,i)=>{const band=ALL.find(b=>b.id===today.bands[i]),car={type:today.cars[i].type,v:Math.min(today.cars[i].v,SPR[today.cars[i].type].length-1),j:0};
+  today.slots.forEach((slot,i)=>{const band=bandById(TODAY_QS[i],today.bands[i]),car={type:today.cars[i].type,v:Math.min(today.cars[i].v,SPR[today.cars[i].type].length-1),j:0};
     front[slot]=car;pi=slot;round=i+1;const tb=today.timeBonus[i];score+=band.pts+tb;results.push({band,tb,total:band.pts+tb,car,slot,q:TODAY_QS[i],guess:today.guesses[i],timedOut:today.timedOut[i]})});
   shown=score;$('score').textContent=fmt(score);if(round>=nightAfter){autoNight=false;night=1;setDayNight(1)}
   camX=camFor(pi);syncPips();

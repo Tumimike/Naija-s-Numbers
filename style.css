@@ -73,7 +73,14 @@ body{background:var(--ink);color:var(--text);font-family:var(--body);overflow:hi
 .bar{height:6px;background:#1a1e38;position:relative;overflow:hidden}
 .bar i{position:absolute;inset:0;background:var(--cyan);transform-origin:left;display:block}
 .bar b{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.5)}
-#qText{margin:0;font-size:15px;line-height:1.4;font-weight:500;text-wrap:balance}
+/* question box: sits in the middle of the scene, between the top bar and the answer box */
+#qBox{position:absolute;left:0;right:0;top:80px;bottom:200px;display:grid;place-items:center;pointer-events:none;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.qcard{width:min(560px,100%);background:var(--panel);border:2px solid var(--edge);box-shadow:0 0 0 3px #12152b,6px 6px 0 rgba(0,0,0,.45);
+  padding:16px 18px;display:grid;gap:10px;pointer-events:auto;animation:rise .3s ease-out both;max-height:100%;overflow:auto;box-sizing:border-box}
+#qCat{font-family:var(--display);font-size:11px;letter-spacing:.12em;color:var(--cyan);text-transform:uppercase}
+#qText{margin:0;font-size:18px;line-height:1.4;font-weight:600;text-wrap:balance}
+#qText .mag{color:var(--gold);white-space:nowrap}
 form{display:flex;gap:8px}
 #guess{flex:1;min-width:0;font:600 18px var(--body);color:var(--text);background:#0e1124;border:2px solid var(--line);padding:10px 12px;font-variant-numeric:tabular-nums}
 #guess:focus{outline:none;border-color:var(--cyan)}
@@ -89,7 +96,12 @@ button:disabled{opacity:.4;cursor:default}
 .reveal span{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
 .reveal strong{font-size:16px;font-variant-numeric:tabular-nums}
 #revOff{margin:0;font-size:12px;color:var(--muted)}
-#revSrc{margin:0;font-size:11px;color:var(--muted)}#revSrc span{color:var(--cyan)}
+#revSrc{margin:2px 0 6px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;min-width:0}
+/* plain source button: muted and thin so it blends in */
+.srcBtn{flex:none;display:inline-block;font:inherit;font-size:11px;line-height:1;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:4px 8px;background:transparent}
+.srcBtn:hover,.srcBtn:focus-visible{color:var(--cyan);border-color:var(--cyan);outline:none}
+.srcName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.detail .srcLine{display:flex;align-items:center;gap:8px;min-width:0;color:var(--muted)}
 #pressOn{width:100%}
 
 .fly{position:absolute;left:0;top:0;font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.06em;padding:4px 8px;background:var(--panel);border:1px solid var(--cyan);color:var(--cyan);pointer-events:none;white-space:nowrap;z-index:5}
@@ -119,5 +131,5 @@ button:disabled{opacity:.4;cursor:default}
 .res li .t{color:var(--gold)}
 .res .far{font-size:12px;color:var(--muted);margin:0}.res .far span{color:var(--cyan)}
 .res .copied{font-size:12px;color:var(--cyan);margin:0}.res .next{font-size:12px;color:var(--muted);margin:0;text-align:center;line-height:1.6;font-variant-numeric:tabular-nums}
-@media (max-width:600px){.hud{grid-template-columns:minmax(0,1fr) auto}.pips{grid-row:2;grid-column:1}.pips .pip{width:11px;height:11px}.score strong{font-size:18px}.brand b{font-size:12px}#qText{font-size:14px}}
+@media (max-width:600px){.hud{grid-template-columns:minmax(0,1fr) auto}.pips{grid-row:2;grid-column:1}.pips .pip{width:11px;height:11px}.score strong{font-size:18px}.brand b{font-size:12px}#qText{font-size:16px}.qcard{padding:12px 14px;gap:8px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}#guess.urgent{background:#3a0f16}}
