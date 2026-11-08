@@ -19,13 +19,19 @@ Daily Lagos number-guessing game (inspired by Wordle / Krillion). Plain HTML/CSS
 - Progress and stats (played, streak, best streak, best score, average) are saved in `localStorage` (`nn_today`, `nn_stats`). `nn_today` also keeps each round's band, vehicle and traffic slot so a refresh puts the player back where they were.
 
 ## Design (done, Nov 2026)
-- Flat pixel-art traffic jam crossing four city groups (Lagos Island, Lagos Mainland, Abuja, Port Harcourt). Each day starts the route at a different group. After each answer the camera pans along the traffic by points (accuracy + time bonus) and lands on a vehicle picked from `ODDS` by accuracy band. Full brief: the "background-design-brief" doc in the claude.ai project.
+- Flat pixel-art traffic jam crossing four city groups (Lagos Island, Lagos Mainland, Abuja, Port Harcourt). Each day starts the route at a different group. After each answer the camera pans along the traffic by points (`PX_PER_POINT` 4.29, raised 30% in Nov 2026) (accuracy + time bonus) and lands on a vehicle picked from `ODDS` by accuracy band. Full brief: the "background-design-brief" doc in the claude.ai project.
 - Each city's weather is fetched live from Open-Meteo (no key). Falls back to sample weather if blocked.
 - Night falls after a random round (same for everyone that day); the DAY/NIGHT button toggles it.
 - The Bugatti, Porsche, Cybertruck and McLaren sprites are the owner's friend's pixel art, used with permission (embedded as `FRIEND_ART`).
 - Only real, named places are labelled in the HUD.
 - Start screen: pixel logo ("NAIJA'S" green-white-green, "NUMBERS" black with a faint white outline) in a box, gently bobbing, with the start button centred under it. Drawn by `drawLogo()` in `game.js`.
 - After each round a chip in the middle of the screen shows the accuracy band and points.
+
+## Sound (added Nov 2026)
+- `sound.js` (`SFX`) plays the files in `sounds/`; volumes in `VOL` were set by the owner on a sound check page. Only the owner's own five recordings are used; don't add other sounds without asking.
+- Countdown tick each second for the last 5 seconds; coin as points fly up; engine (`engine.mp3`, from the owner's danfo recording) during the camera pan, for every vehicle; miss horn (cut from the traffic recording) on a miss; quiet go-slow traffic loop all game (25%); rain loop while it rains where the camera is (15%, owner's choice).
+- No sound on typing or on submitting. SOUND/MUTED button beside DAY/NIGHT, saved in `localStorage` (`nn_mute`). Sound starts after the first tap or key press (browser rule).
+- Hawker voice calls are planned once the owner records them.
 
 ## Owner's instructions
 - Core mechanics are done and tested. Don't change scoring or timer rules unless asked.
