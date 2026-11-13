@@ -42,6 +42,11 @@ body{background:var(--ink);color:var(--text);font-family:var(--body);overflow:hi
 #nightChip i{width:8px;height:8px;background:#ffd34d;box-shadow:0 0 6px #ffd34d;display:block;border-radius:50%}
 #nightChip.night{color:#cfd8ff;background:rgba(20,26,60,.8);border-color:#6d7bd6}
 #nightChip.night i{background:#eef1ff;box-shadow:inset -3px 0 0 #6d7bd6,0 0 6px #c9d4ff}
+.chips{display:flex;gap:6px}
+#muteChip{pointer-events:auto;font-family:var(--display);font-size:10px;letter-spacing:.1em;color:#d9f5e4;background:rgba(10,48,30,.75);border:1px solid #3fbf72;padding:4px 7px;display:flex;align-items:center;gap:6px;text-transform:uppercase}
+#muteChip i{width:8px;height:8px;display:block;background:#3fbf72;clip-path:polygon(0 30%,35% 30%,75% 0,75% 100%,35% 70%,0 70%)}
+#muteChip.off{color:#e3e5ea;background:rgba(40,42,50,.8);border-color:#8a8f99}
+#muteChip.off i{background:#8a8f99}
 
 #card{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);max-width:calc(100% - 32px);
   background:var(--panel);border:2px solid var(--edge);padding:12px 18px;display:flex;align-items:center;gap:12px;white-space:nowrap;font-family:var(--display);font-size:clamp(14px,4vw,20px);box-shadow:4px 4px 0 rgba(0,0,0,.45);letter-spacing:.08em;text-transform:uppercase;animation:drop .35s cubic-bezier(.2,.9,.3,1.2) both}

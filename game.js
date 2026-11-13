@@ -55,7 +55,7 @@ const ALL=[...BANDS,DOUBLE,MISS];
 // Mid tier (within 25%): everyday cars. Low tier (within 40%, half to double): kekes and danfos. Miss: okada.
 const ODDS={d:{chiron:.6,porsche:.4},g:{gwagon:.35,mclaren:.35,porsche:.3},c:{cruiser:.35,tesla:.25,ducati:.2,porsche:.2},t:{prado:.4,tesla:.2,ducati:.2,porsche:.2},
   q:{suzuki:.25,prius:.2,sedan:.2,rav4:.15,hilux:.2},f:{danfo:.5,keke:.5},h:{keke:.6,danfo:.4},m:{okada:1}};
-const PX_PER_POINT=3.3;      // camera travel per point, before the band multiplier
+const PX_PER_POINT=4.29;     // camera travel per point, before the band multiplier (was 3.3; raised 30% Nov 2026)
 const UNIT={tens:10,hundreds:100,thousands:1e3,millions:1e6,billions:1e9,trillions:1e12};
 const SUF={h:100,hundred:100,hundreds:100,k:1e3,thousand:1e3,thousands:1e3,m:1e6,mil:1e6,mill:1e6,million:1e6,millions:1e6,b:1e9,bn:1e9,billion:1e9,billions:1e9,t:1e12,tn:1e12,trn:1e12,trillion:1e12,trillions:1e12};
 // Year questions (type:"year") are scored by how many years off the guess is, because % off doesn't work for years
@@ -812,6 +812,8 @@ function buildUI(){$('pips').innerHTML='<span class="pip"></span>'.repeat(ROUNDS
   $('guessForm').onsubmit=e=>{e.preventDefault();submit(false)};
   $('pressOn').onclick=()=>{$('card').hidden=true;if(round>=ROUNDS)return;nextQuestion()};
   $('nightChip').onclick=()=>{autoNight=false;setDayNight(nightTarget?0:1)};
+  const paintMute=()=>{const m=SFX.muted,b=$('muteChip');b.classList.toggle('off',m);b.querySelector('span').textContent=m?'MUTED':'SOUND';b.setAttribute('aria-pressed',m)};
+  $('muteChip').onclick=()=>{SFX.unlock();SFX.setMuted(!SFX.muted);paintMute()};paintMute();
   $('shareBtn').onclick=share;syncPips()}
 function syncPips(){[...$('pips').children].forEach((p,i)=>{p.style.background=results[i]?results[i].band.col:'';p.classList.toggle('now',i===round&&round<ROUNDS&&phase!=='start')})}
 function nextQuestion(){phase='question';const q=TODAY_QS[round];$('intro').hidden=true;$('startView').hidden=true;$('revView').hidden=true;$('qView').hidden=false;
@@ -823,7 +825,11 @@ function nextQuestion(){phase='question';const q=TODAY_QS[round];$('intro').hidd
   if(!today.startedAt){today.startedAt=Date.now();saveKey('nn_today',today)}
   timerOn=true;syncPips();if(matchMedia('(pointer:fine)').matches)$('guess').focus();resize();placeQ()}
 function secsLeft(){return Math.max(0,SECONDS-(Date.now()-today.startedAt)/1000)}
-function tickTimer(){if(!timerOn)return;const s=secsLeft();$('clock').textContent=Math.ceil(s);$('clock').classList.toggle('low',s<5);$('guess').classList.toggle('urgent',s<5);$('barFill').style.transform=`scaleX(${s/SECONDS})`;
+let lastTick=0;
+function tickTimer(){if(!timerOn)return;const s=secsLeft();
+  // tick sound once a second for the last 5 seconds
+  if(s<5&&s>0){const c=Math.ceil(s);if(c!==lastTick){lastTick=c;SFX.play('tick')}}else lastTick=0;
+  $('clock').textContent=Math.ceil(s);$('clock').classList.toggle('low',s<5);$('guess').classList.toggle('urgent',s<5);$('barFill').style.transform=`scaleX(${s/SECONDS})`;
   $('barFill').style.background=s>=10?'var(--cyan)':s>=5?'var(--gold)':'#ff6b5a';if(s<=0)submit(true)}
 function submit(timedOut){if(phase!=='question')return;const box=$('guessForm').getBoundingClientRect();const q=TODAY_QS[round],raw=$('guess').value.trim();const g=raw?parseGuess(raw,q.unit,q):null;
   if(!timedOut&&(g===null||g<=0)){$('guessHint').textContent=isYear(q)?COPY.unreadableYear:COPY.unreadable;return}
@@ -852,10 +858,12 @@ function showCard(r){$('cardDot').style.background=r.band.col;$('cardBand').text
 // ===================== FLOW =====================
 function fire(band,tb,box){$('card').hidden=true;const total=band.pts+tb;const car={type:pick(ODDS[band.id]),v:0,j:0};car.v=variant(car.type);
   const r={band,tb,total,car,passed:0,slot:pi};results.push(r);round++;syncPips();
-  if(band.pts)fly(box,`+${band.pts}`,'acc',0,()=>bump(band.pts));if(tb)fly(box,`+${tb} TIME`,'time',260,()=>bump(tb));
-  if(!total){front[pi]=car;for(let i=0;i<10;i++)puffs.push({x:carX(pi)+10,y:groundY+34,vx:(Math.random()-.5)*16,vy:-6-Math.random()*8,life:1,big:1});anim={kind:'nudge',t0:t,r};return r}
+  if(band.pts){fly(box,`+${band.pts}`,'acc',0,()=>bump(band.pts));SFX.play('coin')}if(tb)fly(box,`+${tb} TIME`,'time',260,()=>bump(tb));
+  if(!total){front[pi]=car;for(let i=0;i<10;i++)puffs.push({x:carX(pi)+10,y:groundY+34,vx:(Math.random()-.5)*16,vy:-6-Math.random()*8,life:1,big:1});anim={kind:'nudge',t0:t,r};SFX.play('miss');return r}
   const dist=total*PX_PER_POINT*band.mult;let tgt=Math.max(pi+1,Math.round((carX(pi)+dist-laneX)/SLOT));tgt=Math.min(front.length-1,tgt);front[tgt]=car;r.passed=tgt-pi;r.slot=tgt;
-  anim={kind:'pan',t0:t,dur:reduce?.4:1+(tgt-pi)*SLOT/700,from:camX,tgt,r};return r}
+  anim={kind:'pan',t0:t,dur:reduce?.4:1+(tgt-pi)*SLOT/700,from:camX,tgt,r};
+  // engine sound for the pan, ending with the camera (starts just after the coin)
+  const ed=Math.max(1.4,anim.dur+.7);setTimeout(()=>SFX.play('engine',{fadeIn:.2,dur:ed,fadeOut:.7}),250);return r}
 function land(r){anim=null;showCard(r);
   if(round===nightAfter&&autoNight){autoNight=false;setDayNight(1)}
   if(round>=ROUNDS)setTimeout(showResult,1400);else{phase='landed';$('pressOn').disabled=false;$('pressOn').focus({preventScroll:true})}}
@@ -873,7 +881,7 @@ async function share(){const tbSum=today.timeBonus.reduce((a,b)=>a+b,0);
 let countdownId=null;
 function startCountdown(){if(countdownId)return;const tick=()=>{const ms=Math.max(0,(TODAY+1)*DAY_MS-LAGOS_OFFSET_MS-Date.now());if(ms===0){location.reload();return}
     const p=n=>String(n).padStart(2,'0');$('countdown').textContent=`${COPY.nextIn} ${p(Math.floor(ms/3.6e6))}:${p(Math.floor(ms%3.6e6/6e4))}:${p(Math.floor(ms%6e4/1000))}`};tick();countdownId=setInterval(tick,1000)}
-function begin(){round=0;score=0;shown=0;results=[];night=0;autoNight=true;setDayNight(0);laneX=laneX2=0;anim=null;phase='start';timerOn=false;
+function begin(){SFX.startLoop('traffic');round=0;score=0;shown=0;results=[];night=0;autoNight=true;setDayNight(0);laneX=laneX2=0;anim=null;phase='start';timerOn=false;
   nightAfter=1+(dayRand()*4|0);const start=TODAY%4;route=ORDER.slice(start).concat(ORDER.slice(0,start));buildWorld();genTraffic();genPeds();resize();
   // put back anything already played today
   today.slots.forEach((slot,i)=>{const band=bandById(TODAY_QS[i],today.bands[i]),car={type:today.cars[i].type,v:Math.min(today.cars[i].v,SPR[today.cars[i].type].length-1),j:0};
@@ -970,6 +978,7 @@ function hexRGB(h){const v=hx(h);return`rgb(${v[0]},${v[1]},${v[2]})`}
 function lerpRGB(a,b,t){const pa=a.match(/\d+/g).map(Number),pb=b.match(/\d+/g).map(Number);return`rgb(${pa[0]+(pb[0]-pa[0])*t|0},${pa[1]+(pb[1]-pa[1])*t|0},${pa[2]+(pb[2]-pa[2])*t|0})`}
 
 // ===================== UPDATE =====================
+let rainSnd=false;
 function update(dt){
   laneX+=Math.max(0,Math.sin(t*.7))*2.4*dt;laneX2+=Math.max(0,Math.sin(t*.55+2))*2*dt;
   for(const p of peds)p.x+=p.v*dt;for(const p of sellers)p.x+=Math.sin(t*.5+p.ph)*1.4*dt;
@@ -984,6 +993,8 @@ function update(dt){
   puffT+=dt;if(!anim&&puffT>.5){puffT=0;const s=spr(front[pi]);puffs.push({x:carX(pi)+s.tail[0]-1,y:groundY+44-s.h+s.tail[1]+1,vx:-4-Math.random()*4,vy:-3-Math.random()*3,life:1})}
   for(const p of puffs){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt*(p.big?1.4:.9)}puffs=puffs.filter(p=>p.life>0);
   const W=weatherNow();
+  // rain sound loops while it's raining where the camera is
+  if(!rainSnd&&W.rain>.25){rainSnd=true;SFX.startLoop('rain')}else if(rainSnd&&W.rain<.1){rainSnd=false;SFX.stopLoop('rain')}
   if(W.rain>0){const want=Math.round(160*Math.min(1.7,W.rain));while(drops.length<want)drops.push({x:Math.random()*(artW+40),y:Math.random()*-artH,v:180+Math.random()*80});drops.length=Math.min(drops.length,want);
     for(const d of drops){d.y+=d.v*dt;d.x-=d.v*.25*dt+vel*dt*.3;if(d.y>groundY+50||d.x<-5){d.y=-5;d.x=Math.random()*(artW+40)}}}else drops.length=0;
   if(W.bolt>.1&&flash<=0&&Math.random()<dt*W.bolt/5)flash=1;flash=Math.max(0,flash-dt*5);
