@@ -8,7 +8,7 @@ Daily Lagos number-guessing game (inspired by Wordle / Krillion). Plain HTML/CSS
 - `index.html` – page structure (scene canvas, HUD, answer panel, summary). `style.css` – styling; colours and fonts are tokens at the top.
 
 ## Rules (as built)
-- 5 rounds a day. Puzzle #1 = 1 Nov 2026. Day rolls over at midnight Lagos time (UTC+1). Day N takes the Nth question of each of the 5 categories (looping per category), shown in a day-seeded random order (`pickToday()`).
+- 5 rounds a day. Puzzle #1 = 14 Nov 2026 (before that date the game shows puzzle #1). Day rolls over at midnight Lagos time (UTC+1). Day N takes the Nth question of each of the 5 categories (looping per category), shown in a day-seeded random order (`pickToday()`).
 - Questions appear in a box in the middle of the screen: category, then the question with its hint in brackets. The hint is only the size of the answer, worked out from the answer by `sizeWords()`: (tens of thousands), (hundreds of millions), (₦ trillions), (year). No written clues. The answer box stays docked at the bottom.
 - Number questions have a unit (hundreds/thousands/millions/billions/trillions). Input accepts `2500000`, `2,500,000`, `2.5m`, `2.5 million`, `2500k`; a bare small number uses the hint unit (`2.5` on millions = 2,500,000).
 - Points per round by % off the answer: ≤1% 350, ≤2.5% 250, ≤5% 150, ≤10% 100, ≤25% 75, ≤40% 50, half-to-double 20, else 0.
@@ -25,6 +25,7 @@ Daily Lagos number-guessing game (inspired by Wordle / Krillion). Plain HTML/CSS
 - The Bugatti, Porsche, Cybertruck and McLaren sprites are the owner's friend's pixel art, used with permission (embedded as `FRIEND_ART`).
 - Only real, named places are labelled in the HUD.
 - Start screen: pixel logo ("NAIJA'S" green-white-green, "NUMBERS" black with a faint white outline) in a box, gently bobbing, with the start button centred under it. Drawn by `drawLogo()` in `game.js`.
+- Results screen ends with a small "For inquiries — naijasnumbers@gmail.com" line.
 - After each round a chip in the middle of the screen shows the accuracy band and points.
 - Answer reveal (Nov 2026): four tiers (`TIERS` in `game.js`): best = within 1%/2.5% (bright blue), good = 5%/10% (green), mediocre = 25%/40% (grey), worst = half-to-double/miss (red). Guess and answer slide in; the "% off" counts up in the tier colour; a closeness bar (smooth red–grey–green–blue gradient, answer in the middle) gets a pin that slides to the guess, "too low" left / "too high" right. The guess/answer boxes pulse and the screen edges flash then keep glowing in the tier colour until Press on. The round chip takes the tier colour. Best = pixel fireworks (silent) + sparkles; good = sparkles; worst = short screen shake.
 - Rooftop hero: an original character on the Mile 2 Station roof (black outfit, glasses, arms folded, green cape trimmed white billowing). Jumps with both arms up on a best-tier answer. `drawHero()` in `game.js`. Keep it original; don't turn it into any existing character.
