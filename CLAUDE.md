@@ -25,6 +25,7 @@ Daily Lagos number-guessing game (inspired by Wordle / Krillion). Plain HTML/CSS
 - The Bugatti, Porsche, Cybertruck and McLaren sprites are the owner's friend's pixel art, used with permission (embedded as `FRIEND_ART`).
 - Only real, named places are labelled in the HUD.
 - Start screen: pixel logo ("NAIJA'S" green-white-green, "NUMBERS" black with a faint white outline) in a box, gently bobbing, with the start button centred under it. Drawn by `drawLogo()` in `game.js`.
+- Results screen ends with a small "For inquiries — naijasnumbers@gmail.com" line.
 - After each round a chip in the middle of the screen shows the accuracy band and points.
 - Answer reveal (Nov 2026): four tiers (`TIERS` in `game.js`): best = within 1%/2.5% (bright blue), good = 5%/10% (green), mediocre = 25%/40% (grey), worst = half-to-double/miss (red). Guess and answer slide in; the "% off" counts up in the tier colour; a closeness bar (smooth red–grey–green–blue gradient, answer in the middle) gets a pin that slides to the guess, "too low" left / "too high" right. The guess/answer boxes pulse and the screen edges flash then keep glowing in the tier colour until Press on. The round chip takes the tier colour. Best = pixel fireworks (silent) + sparkles; good = sparkles; worst = short screen shake.
 - Rooftop hero: an original character on the Mile 2 Station roof (black outfit, glasses, arms folded, green cape trimmed white billowing). Jumps with both arms up on a best-tier answer. `drawHero()` in `game.js`. Keep it original; don't turn it into any existing character.
