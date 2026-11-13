@@ -54,6 +54,13 @@ body{background:var(--ink);color:var(--text);font-family:var(--body);overflow:hi
 #cardDot{width:1em;height:1em;display:block;flex:none}
 #cardPts{font-size:inherit;margin:0;font-variant-numeric:tabular-nums}
 #cardPts .a{color:var(--cyan)}#cardPts .t{color:var(--gold)}
+/* the round chip takes its tier colour; the best answers glow */
+#card[data-tier="best"]{border-color:#4fc3ff;box-shadow:0 0 22px rgba(79,195,255,.65),4px 4px 0 rgba(0,0,0,.45);animation:drop .35s cubic-bezier(.2,.9,.3,1.2) both,glow 1.2s ease-in-out .35s 3}
+#card[data-tier="best"] #cardBand{color:#4fc3ff}
+#card[data-tier="good"]{border-color:#4ade80}#card[data-tier="good"] #cardBand{color:#4ade80}
+#card[data-tier="mid"]{border-color:#8a8fa0}#card[data-tier="mid"] #cardBand{color:#c4c8d4}
+#card[data-tier="worst"]{border-color:#ff5a5a}#card[data-tier="worst"] #cardBand{color:#ff5a5a}
+@keyframes glow{50%{box-shadow:0 0 34px rgba(79,195,255,.95),4px 4px 0 rgba(0,0,0,.45)}}
 
 @keyframes pop{from{transform:translate(-50%,-50%) scale(.6);opacity:0}to{transform:translate(-50%,-50%);opacity:1}}
 
@@ -96,11 +103,42 @@ button{font-family:var(--display);font-size:12px;letter-spacing:.08em;color:var(
 button:hover:not(:disabled){background:#1e2348}
 button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 button:disabled{opacity:.4;cursor:default}
-.reveal{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.reveal{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.wrap>*,#revView>*,.reveal div,.reveal strong{min-width:0}
+.reveal strong{overflow-wrap:anywhere;display:block}
 .reveal div{background:#0e1124;border:1px solid var(--line);padding:8px 10px;display:grid;gap:2px}
 .reveal span{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
 .reveal strong{font-size:16px;font-variant-numeric:tabular-nums}
-#revOff{margin:0;font-size:12px;color:var(--muted)}
+#revOff{margin:0;font-size:14px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+#revOff.pop{animation:offPop .35s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes offPop{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+/* answer reveal: guess, then answer, slide up one after the other */
+@keyframes slideUp{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+/* closeness meter: centre is the answer; blue, green, grey, red outwards */
+.meter{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;font-family:var(--display);font-size:9px;letter-spacing:.1em;color:var(--muted)}
+.meter .bar{position:relative;height:12px;overflow:visible;background:linear-gradient(90deg,#ff4a4a 0%,#ff7a52 9%,#9a8f9a 22%,#7d8496 30%,#3fd27a 38%,#4fe0a0 44%,#4fc3ff 50%,#4fe0a0 56%,#3fd27a 62%,#7d8496 70%,#9a8f9a 78%,#ff7a52 91%,#ff4a4a 100%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.5),inset 0 2px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.25)}
+.meter .tk{position:absolute;top:0;bottom:0;width:1px;background:rgba(10,11,18,.45)}
+/* a shine sweeps across the bar as the answer is revealed */
+.meter .bar::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 0%,rgba(255,255,255,.55) 8%,transparent 16%);background-size:250% 100%;background-position:120% 0;opacity:0}
+#revView.go .meter .bar::after{animation:sheen 1.1s ease-out .35s}
+@keyframes sheen{0%{opacity:1;background-position:120% 0}100%{opacity:1;background-position:-30% 0}}
+.meter .mid{position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:#fff}
+#meterMark{position:absolute;top:-6px;left:50%;width:8px;height:22px;margin-left:-4px;border:2px solid #0a0b12;box-shadow:0 0 0 1px #fff}
+#revView.go #meterMark{animation:pin .25s ease-out 1.3s}
+@keyframes pin{50%{transform:translateY(-4px)}}
+/* the edges of the screen flash the tier colour when the answer is revealed */
+#tierFlash{position:absolute;inset:0;pointer-events:none;z-index:6;opacity:0;box-shadow:inset 0 0 0 5px var(--tc,#fff),inset 0 0 60px 6px var(--tc,#fff)}
+#tierFlash.on{animation:edge 1.1s ease-out forwards,hold 1.8s ease-in-out 1.1s infinite}
+#tierFlash.on.best{animation:edge .55s ease-out 3 forwards,hold 1.8s ease-in-out 1.65s infinite}
+@keyframes edge{0%{opacity:0}18%{opacity:1}100%{opacity:.5}}
+@keyframes hold{0%,100%{opacity:.5}50%{opacity:.85}}
+/* the guess and answer boxes pulse in the tier colour while you look at the result */
+#revView.go .reveal div{border-color:var(--tc,var(--line));animation:slideUp .3s ease-out both,tablePulse 1.6s ease-in-out .6s infinite}
+#revView.go .reveal div:last-child{animation-delay:.22s,.82s}
+@keyframes tablePulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 14px 1px var(--tc,#fff),inset 0 0 10px rgba(255,255,255,.06)}}
+/* worst answers give the scene a little shake */
+#stage.shake{animation:shake .4s steps(8)}
+@keyframes shake{0%,100%{transform:none}20%{transform:translate(-4px,1px)}40%{transform:translate(4px,-1px)}60%{transform:translate(-3px,0)}80%{transform:translate(2px,1px)}}
 #revSrc{margin:2px 0 6px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;min-width:0}
 /* plain source button: muted and thin so it blends in */
 .srcBtn{flex:none;display:inline-block;font:inherit;font-size:11px;line-height:1;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:4px 8px;background:transparent}
@@ -137,4 +175,4 @@ button:disabled{opacity:.4;cursor:default}
 .res .far{font-size:12px;color:var(--muted);margin:0}.res .far span{color:var(--cyan)}
 .res .copied{font-size:12px;color:var(--cyan);margin:0}.res .next{font-size:12px;color:var(--muted);margin:0;text-align:center;line-height:1.6;font-variant-numeric:tabular-nums}
 @media (max-width:600px){.hud{grid-template-columns:minmax(0,1fr) auto}.pips{grid-row:2;grid-column:1}.pips .pip{width:11px;height:11px}.score strong{font-size:18px}.brand b{font-size:12px}#qText{font-size:16px}.qcard{padding:12px 14px;gap:8px}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}#guess.urgent{background:#3a0f16}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}#tierFlash.on{opacity:.55}#guess.urgent{background:#3a0f16}}

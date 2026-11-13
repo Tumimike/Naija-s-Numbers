@@ -14,11 +14,13 @@ window.SFX=(()=>{
     if(ctx.state==='suspended'&&!document.hidden)ctx.resume().catch(()=>{});
   }
   // one-off sound; dur/fadeOut cut it short with a fade (used for the engine so it ends with the camera)
-  function play(k,{dur=0,fadeIn=0,fadeOut=0}={}){if(!ctx||!bufs[k]||muted)return;
-    const s=ctx.createBufferSource(),g=ctx.createGain(),t=ctx.currentTime;s.buffer=bufs[k];
-    g.gain.setValueAtTime(fadeIn?0:1,t);if(fadeIn)g.gain.linearRampToValueAtTime(1,t+fadeIn);
-    if(dur&&dur<bufs[k].duration){g.gain.setValueAtTime(1,t+Math.max(fadeIn,dur-fadeOut));g.gain.linearRampToValueAtTime(0,t+dur);s.stop(t+dur+.05)}
-    s.connect(g).connect(chans[k]);s.start(t)}
+  // rate changes the pitch (1 = as recorded, 2 = an octave up); vol scales this one play
+  function play(k,{dur=0,fadeIn=0,fadeOut=0,rate=1,vol=1}={}){if(!ctx||!bufs[k]||muted)return;
+    const s=ctx.createBufferSource(),g=ctx.createGain(),t=ctx.currentTime;s.buffer=bufs[k];s.playbackRate.value=rate;
+    g.gain.setValueAtTime(fadeIn?0:vol,t);if(fadeIn)g.gain.linearRampToValueAtTime(vol,t+fadeIn);
+    s.connect(g).connect(chans[k]);s.start(t);
+    // start first, then schedule the stop (stopping a sound that hasn't started throws, which silenced the engine)
+    if(dur&&dur<bufs[k].duration){g.gain.setValueAtTime(vol,t+Math.max(fadeIn,dur-fadeOut));g.gain.linearRampToValueAtTime(0,t+dur);s.stop(t+dur+.05)}}
   // background loops: overlapping copies crossfaded over 2s so there is no gap
   function startLoop(k){wantLoop[k]=true;if(!ctx||!bufs[k]||loops[k])return;
     const X=2,len=bufs[k].duration,L={on:true,srcs:[],out:ctx.createGain()};loops[k]=L;
