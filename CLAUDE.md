@@ -26,11 +26,13 @@ Daily Lagos number-guessing game (inspired by Wordle / Krillion). Plain HTML/CSS
 - Only real, named places are labelled in the HUD.
 - Start screen: pixel logo ("NAIJA'S" green-white-green, "NUMBERS" black with a faint white outline) in a box, gently bobbing, with the start button centred under it. Drawn by `drawLogo()` in `game.js`.
 - After each round a chip in the middle of the screen shows the accuracy band and points.
+- Answer reveal (Nov 2026): four tiers (`TIERS` in `game.js`): best = within 1%/2.5% (bright blue), good = 5%/10% (green), mediocre = 25%/40% (grey), worst = half-to-double/miss (red). Guess and answer slide in; the "% off" counts up in the tier colour; a closeness bar (smooth red–grey–green–blue gradient, answer in the middle) gets a pin that slides to the guess, "too low" left / "too high" right. The guess/answer boxes pulse and the screen edges flash then keep glowing in the tier colour until Press on. The round chip takes the tier colour. Best = pixel fireworks (silent) + sparkles; good = sparkles; worst = short screen shake.
+- Rooftop hero: an original character on the Mile 2 Station roof (black outfit, glasses, arms folded, green cape trimmed white billowing). Jumps with both arms up on a best-tier answer. `drawHero()` in `game.js`. Keep it original; don't turn it into any existing character.
 
 ## Sound (added Nov 2026)
 - `sound.js` (`SFX`) plays the files in `sounds/`; volumes in `VOL` were set by the owner on a sound check page. Only the owner's own five recordings are used; don't add other sounds without asking.
-- Countdown tick each second for the last 5 seconds; coin as points fly up; engine (`engine.mp3`, from the owner's danfo recording) during the camera pan, for every vehicle; miss horn (cut from the traffic recording) on a miss; quiet go-slow traffic loop all game (25%); rain loop while it rains where the camera is (15%, owner's choice).
-- No sound on typing or on submitting. SOUND/MUTED button beside DAY/NIGHT, saved in `localStorage` (`nn_mute`). Sound starts after the first tap or key press (browser rule).
+- Countdown tick each second for the last 5 seconds; coin as points fly up, pitched and repeated by tier (`tierSound()`: best = 4 rising coins, good = 2, mediocre = 1 lower, worst = 1 low; `SFX.play` takes `rate` and `vol`); engine (`engine.mp3`, from the owner's danfo recording) during the camera pan, for every vehicle; miss horn (cut from the traffic recording) on a miss; quiet go-slow traffic loop all game (25%); rain loop while it rains where the camera is (15%, owner's choice).
+- Fireworks are silent (owner's choice). No sound on typing or on submitting. SOUND/MUTED button beside DAY/NIGHT, saved in `localStorage` (`nn_mute`). Sound starts after the first tap or key press (browser rule).
 - Hawker voice calls are planned once the owner records them.
 
 ## Owner's instructions

@@ -39,6 +39,8 @@
     <button id="startBtn">Take today's journey</button>
   </div>
 
+  <div id="tierFlash" aria-hidden="true"></div>
+
   <div id="panel">
     <div class="wrap">
       <div id="startView">
@@ -60,6 +62,7 @@
           <div><span>Your guess</span><strong id="revGuess"></strong></div>
           <div><span>Answer</span><strong id="revAnswer"></strong></div>
         </div>
+        <div class="meter" aria-hidden="true"><span class="lo"></span><div class="bar" id="meterBar"><i class="mid"></i><b id="meterMark"></b></div><span class="hi"></span></div>
         <p id="revOff"></p>
         <p id="revSrc"></p>
         <button id="pressOn" disabled>Press on →</button>

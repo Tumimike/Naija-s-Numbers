@@ -32,6 +32,8 @@ const COPY={
   share:"Share score",
   copied:"Copied! Paste it in the group chat.",
   nextIn:"Next journey in",
+  tooLow:"TOO LOW",
+  tooHigh:"TOO HIGH",
   continueBtn:"Continue today's journey",
   howto:"Five questions about Nigeria · 18 seconds each · the closer your guess, the further you get through the go-slow.",
   statsLine:(played,streak,best)=>`Played ${played} · Streak ${streak} · Best ${best}`,
@@ -807,10 +809,10 @@ function placeQ(){const b=$('qBox');if(b.hidden)return;b.style.top=(document.que
 function buildUI(){$('pips').innerHTML='<span class="pip"></span>'.repeat(ROUNDS);
   $('startBtn').textContent=COPY.start;document.querySelector('#guessForm button').textContent=COPY.lockIn;$('pressOn').textContent=COPY.pressOn;
   $('resTitle').textContent=`${COPY.summaryTitle} · #${PUZZLE_NO}`;$('resTap').textContent=COPY.summaryTap;$('shareBtn').textContent=COPY.share;$('maxTotal').textContent=`OF ${fmt(MAX_TOTAL)}`;
-  $('howto').textContent=COPY.howto;drawLogo();addEventListener('resize',()=>{drawLogo();placeIntro();placeQ()});
+  $('howto').textContent=COPY.howto;document.querySelector('.meter .lo').textContent=COPY.tooLow;for(const e of[.07,.14,.24,.34,.52,.66,.84])for(const sd of[-1,1]){const t=document.createElement('i');t.className='tk';t.style.left=(50+sd*e*50)+'%';$('meterBar').prepend(t)}document.querySelector('.meter .hi').textContent=COPY.tooHigh;drawLogo();addEventListener('resize',()=>{drawLogo();placeIntro();placeQ()});
   $('startBtn').onclick=()=>{$('intro').hidden=true;$('startView').hidden=true;nextQuestion()};
   $('guessForm').onsubmit=e=>{e.preventDefault();submit(false)};
-  $('pressOn').onclick=()=>{$('card').hidden=true;if(round>=ROUNDS)return;nextQuestion()};
+  $('pressOn').onclick=()=>{$('tierFlash').className='';$('card').hidden=true;if(round>=ROUNDS)return;nextQuestion()};
   $('nightChip').onclick=()=>{autoNight=false;setDayNight(nightTarget?0:1)};
   const paintMute=()=>{const m=SFX.muted,b=$('muteChip');b.classList.toggle('off',m);b.querySelector('span').textContent=m?'MUTED':'SOUND';b.setAttribute('aria-pressed',m)};
   $('muteChip').onclick=()=>{SFX.unlock();SFX.setMuted(!SFX.muted);paintMute()};paintMute();
@@ -837,7 +839,7 @@ function submit(timedOut){if(phase!=='question')return;const box=$('guessForm').
   const tb=band.pts>0&&!timedOut?(TIME_TIERS.find(x=>left>=x.s)||{p:0}).p:0;
   $('qView').hidden=true;$('qBox').hidden=true;$('revView').hidden=false;$('pressOn').disabled=true;
   $('revGuess').textContent=g?fmtQ(q,g):'—';$('revAnswer').textContent=fmtQ(q,q.answer);
-  $('revOff').textContent=(g?`${isYear(q)?(t=>t===band.label?t:t+' · '+band.label)(COPY.yearsOff(Math.abs(g-q.answer))):(Math.abs(g-q.answer)/q.answer*100).toFixed(1)+'% off · '+band.label}`:timedOut?COPY.timedOut:COPY.noGuess)+(tb?` · locked in with ${Math.floor(left)}s left`:'');
+  revealAnswer(q,g,band,timedOut,tb,left);
   srcInto($('revSrc'),q);
   const r=fire(band,tb,box);Object.assign(r,{q,guess:g,timedOut});
   today.guesses.push(g&&g>0?g:null);today.scores.push(band.pts);today.timeBonus.push(tb);today.bands.push(band.id);today.cars.push({type:r.car.type,v:r.car.v});today.slots.push(r.slot);today.timedOut.push(!!timedOut);today.startedAt=null;
@@ -851,14 +853,92 @@ function fly(from,textS,cls,delay,cb){const to=$('score').getBoundingClientRect(
   a.onfinish=()=>{el.remove();cb&&cb()}}
 function bump(n){score+=n;const s=$('score');s.classList.add('bump');setTimeout(()=>s.classList.remove('bump'),160)}
 function carCanvas(el,car,z){const s=spr(car);el.width=s.w*z;el.height=s.h*z;const g=el.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(s.day,0,0,s.w*z,s.h*z);return el}
-function showCard(r){$('cardDot').style.background=r.band.col;$('cardBand').textContent=r.band.label;
+function showCard(r){const tier=tierOf(r.band.id);$('card').dataset.tier=tier;$('cardDot').style.background=r.band.col;$('cardBand').textContent=r.band.label;
+  if(tier==='best'||tier==='good')sparkleAt(artW/2,artH*.42,tier==='best'?['#4fc3ff','#ffffff','#f5c542']:['#4ade80','#ffffff','#f5c542'],tier==='best'?40:26);
   $('cardPts').innerHTML=r.total?`<span class="a">+${r.band.pts}</span>${r.tb?` <span class="t">+${r.tb} time</span>`:''}`:'<span style="color:var(--muted)">0 pts</span>';
   const c=$('card');c.hidden=true;void c.offsetWidth;c.hidden=false}
+
+
+// ===================== ANSWER REVEAL & FLAIR =====================
+// Four tiers decide the colour of the "how far off" text, the sound and the flair:
+// best (within 1% / 2.5%) bright blue + fireworks, good (5% / 10%) green + sparkles,
+// mediocre (25% / 40%) grey, worst (half-to-double, miss) red + a little shake.
+const TIERS={best:{ids:['d','g'],col:'#4fc3ff'},good:{ids:['c','t'],col:'#4ade80'},mid:{ids:['q','f'],col:'#a8adbd'},worst:{ids:['h','m'],col:'#ff5a5a'}};
+const tierOf=id=>Object.keys(TIERS).find(k=>TIERS[k].ids.includes(id));
+// where each band sits on the closeness meter (0 = spot on, 1 = way off)
+const METER={d:[0,.07],g:[.07,.14],c:[.14,.24],t:[.24,.34],q:[.34,.52],f:[.52,.66],h:[.66,.84],m:[.84,1]};
+function meterPos(q,g,band){const[lo,hi]=METER[band.id];if(!g)return 1;
+  let f=.5;if(isYear(q)){const d=Math.abs(g-q.answer),Y=[0,1,2,5,10,20,40,80],i=['d','g','c','t','q','f','h','m'].indexOf(band.id);f=i<=0?0:clamp((d-Y[i-1])/(Y[i]-Y[i-1]))}
+  else{const off=Math.abs(g-q.answer)/q.answer,P={d:[0,.01],g:[.01,.025],c:[.025,.05],t:[.05,.1],q:[.1,.25],f:[.25,.4]};
+    if(P[band.id]){const[a,b]=P[band.id];f=clamp((off-a)/(b-a))}else{const ratio=Math.max(g,q.answer)/Math.min(g,q.answer);f=band.id==='h'?clamp((ratio-1.4)/.6):clamp(Math.log(ratio/2)/Math.log(5))}}
+  return lo+(hi-lo)*f}
+// sounds: only the owner's recordings, pitched and repeated to say how good the answer was
+function tierSound(tier){const c=(rate,ms,vol=1)=>setTimeout(()=>SFX.play('coin',{rate,vol}),ms);
+  if(tier==='best'){c(1,0);c(1.26,110);c(1.5,220);c(2,360)}
+  else if(tier==='good'){c(1,0);c(1.26,130)}
+  else if(tier==='mid')c(.85,0,.8);
+  else c(.62,0,.75)}
+// reveal sequence in the answer panel: guess, then answer, then the % off counting up in its tier colour, then the meter pin sliding in
+function revealAnswer(q,g,band,timedOut,tb,left){const tier=tierOf(band.id),col=TIERS[tier].col,rv=$('revView');
+  rv.classList.remove('go');void rv.offsetWidth;rv.classList.add('go');rv.dataset.tier=tier;
+  const off=$('revOff');off.style.color=col;const tail=(tb?` · locked in with ${Math.floor(left)}s left`:'');
+  if(!g){off.textContent=(timedOut?COPY.timedOut:COPY.noGuess)}
+  else{const yr=isYear(q),target=yr?Math.abs(g-q.answer):Math.abs(g-q.answer)/q.answer*100,t0=performance.now(),D=reduce?0:700;
+    const put=v=>{off.textContent=yr?(t=>t===band.label?t:t+' · '+band.label)(COPY.yearsOff(Math.round(v))):v.toFixed(1)+'% off · '+band.label};
+    const step=now=>{const k=D?clamp((now-t0-450)/D):1;put(target*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(step);else{off.textContent+=tail;off.classList.remove('pop');void off.offsetWidth;off.classList.add('pop')}};requestAnimationFrame(step)}
+  const pos=meterPos(q,g,band),side=!g||g>=q.answer?1:-1,mk=$('meterMark');
+  mk.style.transition='none';mk.style.left=(side>0?100:0)+'%';mk.style.background=col;void mk.offsetWidth;
+  mk.style.transition=reduce?'none':'left .9s cubic-bezier(.2,.9,.25,1.15) .45s';mk.style.left=(50+side*pos*50)+'%';
+  // screen edges flash the tier colour, then keep glowing until the player presses on
+  const fl=$('tierFlash');fl.style.setProperty('--tc',col);fl.className='';void fl.offsetWidth;fl.className='on '+tier;rv.style.setProperty('--tc',col);
+  if(tier==='worst'&&!reduce){stage.classList.remove('shake');void stage.offsetWidth;stage.classList.add('shake')}
+  if(tier==='best'){launchFireworks(band.id==='d'?8:5);heroCheer=t}
+  return tier}
+
+// pixel fireworks in the sky (screen space, so they stay put while the camera pans)
+let fw=[];
+function launchFireworks(n){const pals=[['#008751','#ffffff'],['#4fc3ff','#ffffff'],['#f5c542','#ff9a1a'],['#ff5ab0','#ffd6e6'],['#4ade80','#f5c542']];
+  for(let i=0;i<n;i++)setTimeout(()=>{const x=artW*(.15+Math.random()*.7);fw.push({k:'r',x,y:groundY-4,vy:-(150+Math.random()*60),ty:groundY*(.12+Math.random()*.3),pal:pals[Math.random()*pals.length|0],life:1})},i*(reduce?0:260)+120)}
+function sparkleAt(x,y,cols,n=26){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=25+Math.random()*45;fw.push({k:'p',x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-10,g:40,col:cols[i%cols.length],life:.9+Math.random()*.5,max:1.4})}}
+function updateFireworks(dt){for(const p of fw){if(p.k==='r'){p.y+=p.vy*dt;fw.push({k:'t',x:p.x+(Math.random()-.5),y:p.y+3,col:'#ffd27a',life:.35,max:.35});
+      if(p.y<=p.ty){p.dead=1;fw.push({k:'f',x:p.x,y:p.y,life:.18,max:.18});const N=48+(Math.random()*16|0);for(let i=0;i<N;i++){const a=i/N*Math.PI*2,s=55+Math.random()*35;fw.push({k:'p',big:1,x:p.x,y:p.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,g:30,col:p.pal[i%2],life:1.2+Math.random()*.6,max:1.7})}}}
+    else{if(p.vx!=null){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.g||0)*dt;p.vx*=1-dt*1.2}p.life-=dt;if(p.life<=0)p.dead=1}}
+  fw=fw.filter(p=>!p.dead)}
+function drawFireworks(n){if(!fw.length)return;ctx.save();if(n>.3)ctx.globalCompositeOperation='lighter';
+  for(const p of fw){const a=p.k==='r'?1:clamp(p.life/(p.max||1));ctx.globalAlpha=a;
+    if(p.k==='f'){dsc(p.x,p.y,9,'rgba(255,250,220,.75)');continue}
+    ctx.fillStyle=p.k==='r'?'#fff6cf':p.col;const sz=p.k==='r'?2:p.big?(a>.5?3:2):(a>.6?2:1);ctx.fillRect(Math.round(p.x)-(sz>>1),Math.round(p.y)-(sz>>1),sz,sz)}
+  ctx.restore()}
+
+
+// ===================== ROOFTOP HERO =====================
+// An original character on the Mile 2 Station roof: dressed in black with glasses, arms folded,
+// green cape trimmed in white billowing in the wind. Jumps and cheers on a top answer.
+let heroCheer=-9;
+function drawHero(n){const m2=LANDMARKS.find(l=>l[0]==='Mile 2 Station');if(!m2)return;const Wn=LAYERS.near.W,off=A*(1-P_NEAR)-camX*P_NEAR;
+  const SW=groundY-6,yF0=SW-67,dk=c=>n?lerpRGB(c,'rgb(12,14,34)',n*.55):c;
+  for(const base of[0,-Wn,Wn]){const x=Math.round(((m2[2]-70+off)%Wn+Wn)%Wn+base);if(x<-30||x>artW+30)continue;
+    const ct=t-heroCheer,jump=ct<1.6?Math.round(Math.abs(Math.sin(ct*7.8))*4*(1-ct/1.6)):0,y=yF0-jump,R=(a,b,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(a,b,w,h)};
+    // cape streams back to the left, rippling
+    for(let yy=y-15;yy<=y-3;yy++){const k=yy-(y-15),len=4+k*1.15+Math.sin(t*6+k*.6)*1.6+(ct<1.6?2:0),x0=Math.round(x+4-len);
+      R(x0,yy,x+5-x0,1,dk('#0f8a4a'));R(x0,yy,1,1,dk('#f4f4f4'));if(yy===y-3)R(x0,yy,x+5-x0,1,dk('#f4f4f4'))}
+    R(x+4,y-15,7,1,dk('#f4f4f4'));
+    // legs and boots
+    R(x+4,y-7,2,7,dk('#15161c'));R(x+8,y-7,2,7,dk('#15161c'));R(x+3,y-1,3,1,dk('#2a2420'));R(x+8,y-1,3,1,dk('#2a2420'));
+    // body in black with a white belt
+    R(x+4,y-14,7,7,dk('#1c1d24'));R(x+4,y-9,7,1,dk('#e8e8e8'));R(x+5,y-13,1,3,dk('#2c2e38'));
+    // arms folded across the chest; both arms go up while cheering
+    if(ct<1.6){R(x+2,y-21,1,8,dk('#1c1d24'));R(x+2,y-22,2,2,dk(SKIN2));R(x+11,y-21,1,8,dk('#1c1d24'));R(x+11,y-22,2,2,dk(SKIN2))}
+    else{R(x+3,y-14,1,4,dk('#1c1d24'));R(x+10,y-14,1,4,dk('#1c1d24'));R(x+4,y-12,7,2,dk('#2c2e38'));R(x+4,y-12,1,1,dk(SKIN2));R(x+9,y-11,1,1,dk(SKIN2))}
+    // head: short twists
+    R(x+5,y-19,4,4,dk(SKIN2));R(x+5,y-20,4,1,dk('#121010'));R(x+5,y-21,1,1,dk('#121010'));R(x+7,y-21,1,1,dk('#121010'));R(x+9,y-20,1,2,dk('#121010'));
+    // regular glasses
+    R(x+5,y-18,4,1,dk('#0c0c0c'));R(x+6,y-18,1,1,dk('#9fd8ff'));R(x+8,y-18,1,1,dk('#9fd8ff'))}}
 
 // ===================== FLOW =====================
 function fire(band,tb,box){$('card').hidden=true;const total=band.pts+tb;const car={type:pick(ODDS[band.id]),v:0,j:0};car.v=variant(car.type);
   const r={band,tb,total,car,passed:0,slot:pi};results.push(r);round++;syncPips();
-  if(band.pts){fly(box,`+${band.pts}`,'acc',0,()=>bump(band.pts));SFX.play('coin')}if(tb)fly(box,`+${tb} TIME`,'time',260,()=>bump(tb));
+  if(band.pts){fly(box,`+${band.pts}`,'acc',0,()=>bump(band.pts));tierSound(tierOf(band.id))}if(tb)fly(box,`+${tb} TIME`,'time',260,()=>bump(tb));
   if(!total){front[pi]=car;for(let i=0;i<10;i++)puffs.push({x:carX(pi)+10,y:groundY+34,vx:(Math.random()-.5)*16,vy:-6-Math.random()*8,life:1,big:1});anim={kind:'nudge',t0:t,r};SFX.play('miss');return r}
   const dist=total*PX_PER_POINT*band.mult;let tgt=Math.max(pi+1,Math.round((carX(pi)+dist-laneX)/SLOT));tgt=Math.min(front.length-1,tgt);front[tgt]=car;r.passed=tgt-pi;r.slot=tgt;
   anim={kind:'pan',t0:t,dur:reduce?.4:1+(tgt-pi)*SLOT/700,from:camX,tgt,r};
@@ -868,7 +948,7 @@ function land(r){anim=null;showCard(r);
   if(round===nightAfter&&autoNight){autoNight=false;setDayNight(1)}
   if(round>=ROUNDS)setTimeout(showResult,1400);else{phase='landed';$('pressOn').disabled=false;$('pressOn').focus({preventScroll:true})}}
 function setDayNight(v){nightTarget=v;const c=$('nightChip');c.classList.toggle('night',!!v);c.querySelector('span').textContent=v?'NIGHT':'DAY'}
-function showResult(){phase='done';$('card').hidden=true;$('qBox').hidden=true;panel.hidden=true;$('resTot').innerHTML=`${fmt(score)}<small> / ${fmt(MAX_TOTAL)}</small>`;
+function showResult(){phase='done';$('tierFlash').className='';$('card').hidden=true;$('qBox').hidden=true;panel.hidden=true;$('resTot').innerHTML=`${fmt(score)}<small> / ${fmt(MAX_TOTAL)}</small>`;
   $('resList').innerHTML=results.map((r,i)=>`<li><button class="row" id="row${i}" aria-expanded="false" aria-controls="det${i}"><span>${i+1}</span><canvas id="rc${i}"></canvas><span><b class="gv">${r.guess?fmtQ(r.q,r.guess):(r.timedOut?'Time up':'No guess')}</b><br><span style="color:var(--muted)">${r.band.label}</span></span><b>+${r.band.pts}${r.tb?` <span class="t">+${r.tb}</span>`:''}</b><i>▸</i></button><div class="detail" id="det${i}" hidden><q></q><span>Your guess: <b class="g"></b> · Answer: <b class="a"></b></span><span class="srcLine"></span></div></li>`).join('');
   results.forEach((r,i)=>{const d=$('det'+i);d.querySelector('q').textContent=r.q.q;d.querySelector('.g').textContent=r.guess?fmtQ(r.q,r.guess):(r.timedOut?COPY.timedOut:COPY.noGuess);d.querySelector('.a').textContent=fmtQ(r.q,r.q.answer);srcInto(d.querySelector('.srcLine'),r.q);
     $('row'+i).onclick=()=>{const open=d.hidden;d.hidden=!open;$('row'+i).setAttribute('aria-expanded',open)};carCanvas($('rc'+i),r.car,2)});
@@ -934,6 +1014,7 @@ function draw(){const n=night;ctx.setTransform(S,0,0,S,0,0);ctx.imageSmoothingEn
   {const off=A*(1-P_FAR)-camX*P_FAR,Wl=LAYERS.far.W,y0=SW-6-FH;for(const[fx,fy]of FLARES){let x=((fx+off)%Wl+Wl)%Wl;if(x>artW+5)continue;const h=3+Math.round(Math.sin(t*14+fx)*1.5+Math.random());
       ctx.fillStyle='#ffd34d';ctx.fillRect(x,y0+fy-h,3,h);ctx.fillStyle='#ff7a1a';ctx.fillRect(x+1,y0+fy-h-2,1,2);if(n>0){ctx.globalAlpha=n*.35;dsc(x+1,y0+fy-3,6,'#ff9a3a');ctx.globalAlpha=1}}}
   layerDraw(LAYERS.near,P_NEAR,SW+1,n);
+  drawHero(n);
   if(W.dust>0){ctx.fillStyle=`rgba(214,180,120,${W.dust*(n?.06:.12)})`;ctx.fillRect(0,0,artW+1,groundY+50)}
   const ox=-camX;
   // sidewalk with pedestrians
@@ -968,6 +1049,7 @@ function draw(){const n=night;ctx.setTransform(S,0,0,S,0,0);ctx.imageSmoothingEn
   if(!anim||anim.kind==='nudge'){ctx.fillStyle='#08101c';ctx.fillRect(px-3,py-1,7,4);ctx.fillRect(px-1,py+3,3,1);ctx.fillStyle='#53d9ea';ctx.fillRect(px-2,py,5,1);ctx.fillRect(px-1,py+1,3,1);ctx.fillRect(px,py+2,1,1)}
   for(const p of puffs){ctx.globalAlpha=clamp(p.life);ctx.fillStyle=p.big?'#c8c8c8':'#9a9a9a';ctx.fillRect(Math.round((p.x+ox)*S)/S,Math.round(p.y*S)/S,p.big?2:1,p.big?2:1)}ctx.globalAlpha=1;
   for(const s of streaks){ctx.globalAlpha=clamp(s.life)*.6;ctx.fillStyle='#ffffff';ctx.fillRect(s.x,s.y,s.len,1)}ctx.globalAlpha=1;
+  drawFireworks(n);
 }
 // headlight beams: each stops at the gap before the next vehicle, so they never overlap
 function beams(list,base,nextX,k,n){ctx.globalCompositeOperation='lighter';for(const[x,s,i]of list){const hx=x+s.head[0]+1,hy=base-s.h+s.head[1];const gap=Math.min(26,nextX(i)-hx-1);if(gap<3)continue;
@@ -980,6 +1062,7 @@ function lerpRGB(a,b,t){const pa=a.match(/\d+/g).map(Number),pb=b.match(/\d+/g).
 // ===================== UPDATE =====================
 let rainSnd=false;
 function update(dt){
+  updateFireworks(dt);
   laneX+=Math.max(0,Math.sin(t*.7))*2.4*dt;laneX2+=Math.max(0,Math.sin(t*.55+2))*2*dt;
   for(const p of peds)p.x+=p.v*dt;for(const p of sellers)p.x+=Math.sin(t*.5+p.ph)*1.4*dt;
   night+=clamp(nightTarget-night,-dt/2.5,dt/2.5);
