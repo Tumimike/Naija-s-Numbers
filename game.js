@@ -760,8 +760,8 @@ function resize(){const r=stage.getBoundingClientRect(),cssW=r.width,cssH=r.heig
 
 // ===================== DAILY PUZZLE & SAVING =====================
 // Everyone gets the same 5 questions each day (from questions.js). Day rolls over at midnight Lagos time.
-const ROUNDS=5,LAUNCH_DATE=Date.UTC(2026,10,1),LAGOS_OFFSET_MS=60*60*1000,DAY_MS=24*60*60*1000;
-const TODAY=Math.floor((Date.now()+LAGOS_OFFSET_MS)/DAY_MS),PUZZLE_NO=TODAY-Math.floor(LAUNCH_DATE/DAY_MS)+1;
+const ROUNDS=5,LAUNCH_DATE=Date.UTC(2026,10,14),LAGOS_OFFSET_MS=60*60*1000,DAY_MS=24*60*60*1000;
+const TODAY=Math.floor((Date.now()+LAGOS_OFFSET_MS)/DAY_MS),PUZZLE_NO=Math.max(1,TODAY-Math.floor(LAUNCH_DATE/DAY_MS)+1); // before launch day, show puzzle #1
 // One question from each category every day (day N takes the Nth question of each category, looping),
 // shown in a random order that is the same for everyone that day.
 const CATS=Object.keys(COPY.categories);
